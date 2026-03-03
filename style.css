@@ -7879,3 +7879,36 @@ body {
     color: #06b6d4;
     font-weight: 600;
 }
+
+/* ── SHARE LINK ────────────────────────────────────── */
+.setting-actions-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+
+.btn-share-link {
+    background: rgba(16, 185, 129, 0.12) !important;
+    border: 1px solid rgba(16, 185, 129, 0.25) !important;
+    color: #34d399 !important;
+}
+
+.btn-share-link:hover {
+    background: rgba(16, 185, 129, 0.2) !important;
+    border-color: rgba(16, 185, 129, 0.4) !important;
+}
+
+.share-link-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 10px 14px;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: 8px;
+    font-size: 12px;
+    color: #34d399;
+    animation: fadeIn 0.3s ease;
+}

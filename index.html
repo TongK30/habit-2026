@@ -419,9 +419,19 @@
                         </div>
                     </div>
                     <div class="api-status" id="apiStatus"></div>
-                    <button class="btn-test" id="testApiBtn">
-                        <i class="fa-solid fa-vial"></i> Kiểm tra kết nối
-                    </button>
+                    <div class="setting-actions-row">
+                        <button class="btn-test" id="testApiBtn">
+                            <i class="fa-solid fa-vial"></i> Kiểm tra kết nối
+                        </button>
+                        <button class="btn-test btn-share-link" id="copyShareLink"
+                            title="Tạo link chia sẻ cho thiết bị/người dùng khác">
+                            <i class="fa-solid fa-share-nodes"></i> Copy link chia sẻ
+                        </button>
+                    </div>
+                    <div class="share-link-info" id="shareLinkInfo" style="display:none;">
+                        <i class="fa-solid fa-circle-check" style="color: #10b981;"></i>
+                        <span>Đã copy! Link vĩnh viễn — mở trên thiết bị/người dùng khác → tự động nhận API.</span>
+                    </div>
                 </div>
 
                 <div class="panel-card settings-card auto-update-card">
@@ -448,12 +458,15 @@
                     </button>
 
                     <div class="auto-update-guide">
-                        <h4><i class="fa-solid fa-lightbulb" style="color: #f59e0b; margin-right: 6px;"></i> Cách hoạt
+                        <h4><i class="fa-solid fa-lightbulb" style="color: #f59e0b; margin-right: 6px;"></i> Cách
+                            hoạt
                             động</h4>
                         <ol>
                             <li>Lưu API URL ở trên → URL được <strong>đăng ký</strong> vào Google Sheet</li>
-                            <li>Deploy Apps Script lại → Copy URL mới → Dán vào <strong>1 thiết bị bất kỳ</strong></li>
-                            <li>Các thiết bị khác sẽ <strong>tự phát hiện</strong> URL mới (kiểm tra mỗi 5 phút)</li>
+                            <li>Deploy Apps Script lại → Copy URL mới → Dán vào <strong>1 thiết bị bất kỳ</strong>
+                            </li>
+                            <li>Các thiết bị khác sẽ <strong>tự phát hiện</strong> URL mới (kiểm tra mỗi 5 phút)
+                            </li>
                         </ol>
                     </div>
                 </div>
@@ -470,7 +483,8 @@
                 <div class="panel-card settings-card">
                     <h3><i class="fa-solid fa-circle-info"></i> Hướng dẫn nhanh</h3>
                     <ol class="guide-list">
-                        <li>Mở <a href="https://docs.google.com/spreadsheets/create" target="_blank">Google Sheets</a> →
+                        <li>Mở <a href="https://docs.google.com/spreadsheets/create" target="_blank">Google
+                                Sheets</a> →
                             Tạo spreadsheet mới</li>
                         <li>Sao chép <strong>Spreadsheet ID</strong> từ URL</li>
                         <li>Mở <strong>Extensions → Apps Script</strong></li>

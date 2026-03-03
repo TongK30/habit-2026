@@ -3,9 +3,39 @@
 // Kết nối với Google Apps Script API
 // ============================================================
 
-// ⚙️ CONFIG - Lấy từ localStorage (người dùng nhập ở trang Settings)
-let API_URL = localStorage.getItem('habitflow_api_url') || '';
+// ⚙️ CONFIG
+const DEFAULT_API_URL = '';
+
+let API_URL = localStorage.getItem('habitflow_api_url') || DEFAULT_API_URL || '';
 let displayName = localStorage.getItem('habitflow_name') || 'Người dùng';
+
+// 📡 SPREADSHEET ID - dùng để auto-discovery API URL
+// Được tự động lưu khi kết nối API lần đầu. Không cần nhập tay.
+let SHEET_ID = localStorage.getItem('habitflow_sheet_id') || '';
+
+// ============================================================
+// 🔍 AUTO-DISCOVERY: Đọc API URL từ Google Sheets trực tiếp
+// Spreadsheet ID không bao giờ thay đổi → link này vĩnh viễn.
+// Sử dụng Google Visualization API (public endpoint).
+// ============================================================
+async function discoverApiUrl(sheetId) {
+    if (!sheetId) return null;
+    try {
+        const gvizUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=Settings`;
+        const res = await fetch(gvizUrl);
+        if (!res.ok) throw new Error('Sheet not accessible');
+        const text = await res.text();
+        // Parse CSV: tìm dòng "latestApiUrl","https://..."
+        const match = text.match(/"latestApiUrl"\s*,\s*"(https:\/\/[^"]+)"/);
+        if (match) {
+            console.log('🔍 Auto-discovered API URL from Sheets:', match[1]);
+            return match[1];
+        }
+    } catch (err) {
+        console.log('🔍 API discovery failed:', err.message);
+    }
+    return null;
+}
 
 // State toàn cục
 const state = {
@@ -227,7 +257,50 @@ const QUOTES = [
 // ============================================================
 // INIT
 // ============================================================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // 🔗 AUTO-CONFIG VIA URL PARAMS
+    const urlParams = new URLSearchParams(window.location.search);
+
+    // Cách 1: ?api=URL (link trực tiếp với API URL)
+    const apiFromUrl = urlParams.get('api');
+    if (apiFromUrl) {
+        API_URL = apiFromUrl;
+        localStorage.setItem('habitflow_api_url', apiFromUrl);
+        console.log('🔗 Auto-configured API from URL param:', apiFromUrl);
+    }
+
+    // Cách 2: ?sid=SPREADSHEET_ID (link vĩnh viễn, tự đọc API URL từ Sheets)
+    const sidFromUrl = urlParams.get('sid');
+    if (sidFromUrl) {
+        SHEET_ID = sidFromUrl;
+        localStorage.setItem('habitflow_sheet_id', sidFromUrl);
+        console.log('📡 Saved Spreadsheet ID from URL:', sidFromUrl);
+    }
+
+    // Xóa params khỏi URL (giữ URL sạch)
+    if (apiFromUrl || sidFromUrl) {
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+    }
+
+    // 🔍 AUTO-DISCOVERY: Nếu chưa có API URL → thử đọc từ Google Sheets
+    if (!API_URL && SHEET_ID) {
+        showLoading(true);
+        const discovered = await discoverApiUrl(SHEET_ID);
+        if (discovered) {
+            API_URL = discovered;
+            localStorage.setItem('habitflow_api_url', discovered);
+            showToast('🔍 Đã tự động tìm thấy API URL!', 'success');
+        }
+        showLoading(false);
+    }
+
+    // 🔑 Fallback: DEFAULT_API_URL
+    if (!API_URL && DEFAULT_API_URL) {
+        localStorage.setItem('habitflow_api_url', DEFAULT_API_URL);
+        API_URL = DEFAULT_API_URL;
+    }
+
     initUI();
     initSettings();
     loadData();
@@ -415,6 +488,36 @@ function initSettings() {
 
     document.getElementById('testApiBtn').addEventListener('click', testAPI);
 
+    // 📋 Copy Share Link — tạo link vĩnh viễn với Spreadsheet ID
+    const copyShareBtn = document.getElementById('copyShareLink');
+    if (copyShareBtn) {
+        copyShareBtn.addEventListener('click', () => {
+            let shareUrl;
+            if (SHEET_ID) {
+                // Ưu tiên: dùng ?sid= (vĩnh viễn, không hết hạn khi deploy lại)
+                shareUrl = window.location.origin + window.location.pathname + '?sid=' + encodeURIComponent(SHEET_ID);
+            } else {
+                // Fallback: dùng ?api= (hết hạn khi deploy lại GAS)
+                const url = document.getElementById('apiUrlInput').value.trim() || API_URL;
+                if (!url) {
+                    showToast('⚠️ Chưa có API URL để chia sẻ! Hãy lưu API URL trước.', 'error');
+                    return;
+                }
+                shareUrl = window.location.origin + window.location.pathname + '?api=' + encodeURIComponent(url);
+            }
+            navigator.clipboard.writeText(shareUrl).then(() => {
+                showToast('📋 Đã copy link chia sẻ!', 'success');
+                const info = document.getElementById('shareLinkInfo');
+                if (info) {
+                    info.style.display = 'flex';
+                    setTimeout(() => info.style.display = 'none', 8000);
+                }
+            }).catch(() => {
+                prompt('Copy link này:', shareUrl);
+            });
+        });
+    }
+
     document.getElementById('saveProfile').addEventListener('click', () => {
         const name = document.getElementById('displayNameInput').value.trim() || 'Người dùng';
         displayName = name;
@@ -501,6 +604,12 @@ async function loadData() {
             state.stats = data.stats || null;
             saveCache();
             renderAll();
+
+            // 📡 Lưu Spreadsheet ID từ API (cho auto-discovery lần sau)
+            if (data.spreadsheetId && data.spreadsheetId !== 'YOUR_SPREADSHEET_ID_HERE') {
+                SHEET_ID = data.spreadsheetId;
+                localStorage.setItem('habitflow_sheet_id', data.spreadsheetId);
+            }
 
             // Merge focus data from getAll response
             if (typeof FocusXP !== 'undefined' && (data.focusHistory || data.focusXP)) {

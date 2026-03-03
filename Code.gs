@@ -338,7 +338,8 @@ function getAllData() {
     stats: statsResult.stats,
     journal: allJournal,
     focusHistory: focusData.focusHistory || [],
-    focusXP: focusData.focusXP || null
+    focusXP: focusData.focusXP || null,
+    spreadsheetId: SPREADSHEET_ID
   };
 }
 
