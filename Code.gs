@@ -199,6 +199,32 @@ function setupSheets() {
 // ============================================================
 // GET FUNCTIONS
 // ============================================================
+
+/**
+ * Normalize date value from Google Sheets to YYYY-MM-DD string.
+ * Google Sheets tự động chuyển string '2026-03-02' thành Date object.
+ * Hàm này đảm bảo luôn trả về format 'YYYY-MM-DD'.
+ */
+function normalizeDateValue(val) {
+  if (!val) return '';
+  // Nếu là Date object (Google Sheets auto-convert)
+  if (val instanceof Date) {
+    return formatDate(val);
+  }
+  var str = String(val);
+  // Đã đúng format YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  // ISO string: '2026-03-02T00:00:00.000Z'
+  if (str.indexOf('T') > -1) return str.split('T')[0];
+  // Format khác (e.g. 'Mon Mar 02 2026...') → parse lại
+  try {
+    var d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      return formatDate(d);
+    }
+  } catch(e) { }
+  return str;
+}
 function getHabits() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName(SHEET_HABITS);
@@ -227,12 +253,12 @@ function getCompletions(year, month) {
   
   const prefix = `${year}-${String(month).padStart(2, '0')}`;
   const completions = data.slice(1)
-    .filter(row => row[1] && String(row[1]).startsWith(prefix))
     .map(row => ({
       habitId: row[0],
-      date: String(row[1]),
+      date: normalizeDateValue(row[1]),
       completedAt: row[2]
-    }));
+    }))
+    .filter(c => c.habitId && c.date && c.date.startsWith(prefix));
   
   return { success: true, completions };
 }
@@ -246,7 +272,7 @@ function getStats() {
     .filter(r => r[0]).map(r => ({ id: r[0], name: r[1] }));
   
   const allCompletions = completionsSheet.getDataRange().getValues().slice(1)
-    .filter(r => r[0]).map(r => ({ habitId: r[0], date: r[1] }));
+    .filter(r => r[0]).map(r => ({ habitId: r[0], date: normalizeDateValue(r[1]) }));
   
   const today = formatDate(new Date());
   const streaks = {};
@@ -327,7 +353,7 @@ function getAllCompletions() {
     .filter(row => row[0] && row[1])
     .map(row => ({
       habitId: row[0],
-      date: String(row[1]),
+      date: normalizeDateValue(row[1]),
       completedAt: row[2]
     }));
 }
@@ -380,13 +406,7 @@ function toggleCompletion(habitId, date) {
   
   for (let i = 1; i < data.length; i++) {
     const rowHabitId = String(data[i][0]);
-    let rowDate = data[i][1];
-    if (rowDate instanceof Date) {
-      rowDate = formatDate(rowDate);
-    } else {
-      rowDate = String(rowDate);
-      if (rowDate.includes('T')) rowDate = rowDate.split('T')[0];
-    }
+    let rowDate = normalizeDateValue(data[i][1]);
     
     if (rowHabitId === habitId && rowDate === date) {
       sheet.deleteRow(i + 1);
@@ -430,15 +450,8 @@ function getJournal() {
   return data.slice(1)
     .filter(row => row[0])
     .map(row => {
-      let dateStr = row[0];
-      if (dateStr instanceof Date) {
-        dateStr = formatDate(dateStr);
-      } else {
-        dateStr = String(dateStr);
-        if (dateStr.includes('T')) dateStr = dateStr.split('T')[0];
-      }
       return {
-        date: dateStr,
+        date: normalizeDateValue(row[0]),
         mood: String(row[1] || ''),
         content: String(row[2] || ''),
         updatedAt: row[3] || ''
@@ -461,10 +474,7 @@ function saveJournal(date, mood, content) {
   const now = new Date().toISOString();
   
   for (let i = 1; i < data.length; i++) {
-    let rowDate = data[i][0];
-    if (rowDate instanceof Date) rowDate = formatDate(rowDate);
-    else rowDate = String(rowDate);
-    if (rowDate.includes('T')) rowDate = rowDate.split('T')[0];
+    let rowDate = normalizeDateValue(data[i][0]);
     
     if (rowDate === date) {
       sheet.getRange(i + 1, 2).setValue(mood);

@@ -462,28 +462,16 @@ async function loadData() {
 
             // ✅ MERGE COMPLETIONS - normalize dates from API
             const apiCompletions = (data.completions || []).map(c => {
-                // Google Sheets có thể trả Date object hoặc string khác format
-                let dateStr = c.date;
-                if (dateStr && dateStr.includes('T')) {
-                    // ISO string: "2026-02-24T00:00:00.000Z" → "2026-02-24"
-                    dateStr = dateStr.split('T')[0];
-                } else if (dateStr && !dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                    // Nếu là format khác (e.g. "Mon Feb 24 2026") → parse lại
-                    try {
-                        const d = new Date(dateStr);
-                        if (!isNaN(d.getTime())) {
-                            dateStr = formatDate(d);
-                        }
-                    } catch { /* giữ nguyên */ }
-                }
-                return { ...c, date: dateStr };
+                return { ...c, date: normalizeDateStr(c.date) };
             }).filter(c => c.date && c.date.match(/^\d{4}-\d{2}-\d{2}$/));
 
             state.completions = mergeCompletions(apiCompletions, state.completions);
 
             // ✅ MERGE JOURNAL entries từ API (smart merge với timestamp)
             if (data.journal) {
-                const apiJournal = data.journal || [];
+                const apiJournal = (data.journal || []).map(j => ({
+                    ...j, date: normalizeDateStr(j.date)
+                })).filter(j => j.date);
                 const apiJournalMap = new Map(apiJournal.map(j => [j.date, j]));
 
                 // Bước 1: Bắt đầu với dữ liệu API
@@ -2344,6 +2332,46 @@ function formatDateFromParts(year, month, day) {
 function formatDateVi(date) {
     const days = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
     return `${days[date.getDay()]}, ${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+}
+
+/**
+ * Normalize any date string from API to YYYY-MM-DD format.
+ * Handles:
+ * - Already correct: "2026-03-02" → "2026-03-02"
+ * - ISO string: "2026-03-02T00:00:00.000Z" → "2026-03-02"
+ * - Truncated from Google Sheets: "Mon Mar 02 2026 00:00:00 GM" → "2026-03-02"
+ * - Full toString: "Mon Mar 02 2026 00:00:00 GMT+0700" → "2026-03-02"
+ * Uses regex extraction to avoid timezone offset issues with new Date().
+ */
+function normalizeDateStr(dateStr) {
+    if (!dateStr) return '';
+    const s = String(dateStr);
+    // Already YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    // ISO string with T
+    if (s.includes('T')) return s.split('T')[0];
+    // Month name format: "Mon Mar 02 2026..." or "Mar 02, 2026"
+    const MONTHS = {
+        Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
+        Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12'
+    };
+    // Pattern: optional "Mon " + "Mar 02 2026" (with or without comma)
+    const m = s.match(/([A-Z][a-z]{2})\s+(\d{1,2}),?\s+(\d{4})/);
+    if (m && MONTHS[m[1]]) {
+        return `${m[3]}-${MONTHS[m[1]]}-${String(m[2]).padStart(2, '0')}`;
+    }
+    // Last resort: try Date parse but use local date parts to avoid TZ shift
+    try {
+        const d = new Date(s);
+        if (!isNaN(d.getTime())) {
+            // Use getFullYear/getMonth/getDate (local time) to avoid UTC offset issue
+            const y = d.getFullYear();
+            const mo = String(d.getMonth() + 1).padStart(2, '0');
+            const dy = String(d.getDate()).padStart(2, '0');
+            return `${y}-${mo}-${dy}`;
+        }
+    } catch { /* ignore */ }
+    return s;
 }
 
 // ============================================================
