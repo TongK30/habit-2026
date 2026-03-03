@@ -4,7 +4,7 @@
 // ============================================================
 
 // ⚙️ CONFIG
-const DEFAULT_API_URL = '';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzSHL4LivyrmUz5BfZkNkhoxBYqPIOrcR5k0Qr7zyzhO4A6zrWQ1VF-CaEIzAWL-Ze0/exec';
 
 // 📡 DEFAULT_SHEET_ID: Paste Spreadsheet ID vào đây (cùng ID trong Code.gs)
 // ID này KHÔNG BAO GIỜ thay đổi → mọi thiết bị tự tìm API URL từ Google Sheets.
