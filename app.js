@@ -2809,6 +2809,13 @@ const FocusTimer = (() => {
         const config = MODES[currentMode];
         const isBreak = currentMode === 'shortbreak' || currentMode === 'longbreak';
 
+        // 🔔 Phát tiếng chuông thông báo
+        playCompletionBell();
+
+        // 🔇 Tắt tất cả âm thanh (ambient + music)
+        if (typeof AmbientMixer !== 'undefined') AmbientMixer.suspendAudio();
+        if (typeof FocusMusic !== 'undefined') FocusMusic.pauseMusic();
+
         // Focus sessions (deepwork + custom) trigger reward
         if (!isBreak) {
             sessionsDone++;
@@ -2864,6 +2871,54 @@ const FocusTimer = (() => {
         totalTime = config.duration;
         updateTimerDisplay();
         updateTimerRing(1);
+    }
+
+    // 🔔 Tiếng chuông hoàn thành (Web Audio API - không cần file mp3)
+    function playCompletionBell() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+            // 3 nốt chuông tăng dần → cảm giác "hoàn thành!"
+            const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
+            const startTimes = [0, 0.2, 0.4];
+
+            notes.forEach((freq, i) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+
+                // Envelope: attack → sustain → decay
+                gain.gain.setValueAtTime(0, ctx.currentTime + startTimes[i]);
+                gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + startTimes[i] + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startTimes[i] + 1.2);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                osc.start(ctx.currentTime + startTimes[i]);
+                osc.stop(ctx.currentTime + startTimes[i] + 1.5);
+            });
+
+            // Thêm overtone cho tiếng chuông trong hơn
+            const bellOsc = ctx.createOscillator();
+            const bellGain = ctx.createGain();
+            bellOsc.type = 'triangle';
+            bellOsc.frequency.value = 1046.5; // C6 (octave cao)
+            bellGain.gain.setValueAtTime(0, ctx.currentTime + 0.4);
+            bellGain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.45);
+            bellGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 2.0);
+            bellOsc.connect(bellGain);
+            bellGain.connect(ctx.destination);
+            bellOsc.start(ctx.currentTime + 0.4);
+            bellOsc.stop(ctx.currentTime + 2.5);
+
+            // Cleanup
+            setTimeout(() => ctx.close(), 3000);
+        } catch (e) {
+            console.log('🔔 Bell sound failed:', e.message);
+        }
     }
 
     // ── SESSION DOTS ──
