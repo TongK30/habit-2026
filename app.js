@@ -6,12 +6,16 @@
 // ⚙️ CONFIG
 const DEFAULT_API_URL = '';
 
+// 📡 DEFAULT_SHEET_ID: Paste Spreadsheet ID vào đây (cùng ID trong Code.gs)
+// ID này KHÔNG BAO GIỜ thay đổi → mọi thiết bị tự tìm API URL từ Google Sheets.
+// Lấy từ URL Google Sheets: https://docs.google.com/spreadsheets/d/[SPREADSHEET_ID]/edit
+const DEFAULT_SHEET_ID = '1K3_B5HTbZNhUlBYUG8FBPWB56Zqlv2ntuW68-EEmw5Q';
+
 let API_URL = localStorage.getItem('habitflow_api_url') || DEFAULT_API_URL || '';
 let displayName = localStorage.getItem('habitflow_name') || 'Người dùng';
 
 // 📡 SPREADSHEET ID - dùng để auto-discovery API URL
-// Được tự động lưu khi kết nối API lần đầu. Không cần nhập tay.
-let SHEET_ID = localStorage.getItem('habitflow_sheet_id') || '';
+let SHEET_ID = localStorage.getItem('habitflow_sheet_id') || DEFAULT_SHEET_ID || '';
 
 // ============================================================
 // 🔍 AUTO-DISCOVERY: Đọc API URL từ Google Sheets trực tiếp
