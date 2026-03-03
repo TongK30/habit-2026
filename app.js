@@ -2732,6 +2732,10 @@ const FocusTimer = (() => {
             FocusFullscreen.enter(currentMode, MODES[currentMode], timeLeft, totalTime);
         }
 
+        // 🔊 Resume tất cả âm thanh (đã bị pause trước đó)
+        if (typeof AmbientMixer !== 'undefined') AmbientMixer.resumeAudio();
+        if (typeof FocusMusic !== 'undefined') FocusMusic.resumeMusic();
+
         timerInterval = setInterval(() => {
             timeLeft--;
             updateTimerDisplay();
@@ -2762,6 +2766,10 @@ const FocusTimer = (() => {
         btn.classList.remove('running');
 
         document.querySelector('.focus-timer-ring-wrap').classList.remove('running');
+
+        // 🔇 Pause tất cả âm thanh
+        if (typeof AmbientMixer !== 'undefined') AmbientMixer.suspendAudio();
+        if (typeof FocusMusic !== 'undefined') FocusMusic.pauseMusic();
     }
 
     function resetTimer() {
@@ -3515,7 +3523,7 @@ const FocusMusic = (() => {
         const frame = document.getElementById('musicPlayerFrame');
         frame.style.display = 'block';
         const iframe = document.getElementById('musicIframe');
-        iframe.src = `https://www.youtube.com/embed/${track.videoId}?autoplay=1&rel=0`;
+        iframe.src = `https://www.youtube.com/embed/${track.videoId}?autoplay=1&rel=0&enablejsapi=1`;
 
         // Now playing bar
         const nowPlaying = document.getElementById('musicNowPlaying');
@@ -3583,6 +3591,21 @@ const FocusMusic = (() => {
         remove: (id) => removeTrack(id),
         getPlaylist: () => playlist,
         getCurrentTrackId: () => currentTrackId,
+        // 🔇 Pause/Resume YouTube iframe
+        pauseMusic: () => {
+            const iframe = document.getElementById('musicIframe');
+            if (iframe && iframe.src && currentTrackId) {
+                iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+                console.log('🔇 Music paused');
+            }
+        },
+        resumeMusic: () => {
+            const iframe = document.getElementById('musicIframe');
+            if (iframe && iframe.src && currentTrackId) {
+                iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+                console.log('🔊 Music resumed');
+            }
+        },
     };
 })();
 
@@ -4021,7 +4044,22 @@ const AmbientMixer = (() => {
         });
     }
 
-    return { init, applyPreset, toggleSound, setMasterVolume, getActiveChannels: () => Object.keys(channels).filter(k => channels[k]?.active) };
+    // 🔇 Suspend/Resume AudioContext (pause/resume tất cả ambient sounds)
+    function suspendAudio() {
+        if (audioCtx && audioCtx.state === 'running') {
+            audioCtx.suspend();
+            console.log('🔇 Ambient sounds suspended');
+        }
+    }
+
+    function resumeAudio() {
+        if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume();
+            console.log('🔊 Ambient sounds resumed');
+        }
+    }
+
+    return { init, applyPreset, toggleSound, setMasterVolume, suspendAudio, resumeAudio, getActiveChannels: () => Object.keys(channels).filter(k => channels[k]?.active) };
 })();
 
 // Initialize Ambient Mixer
