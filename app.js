@@ -4123,7 +4123,7 @@ const DailyFocusTracker = (() => {
         let lastMonth = -1;
         let weekIdx = 0;
         const cursor = new Date(startDate);
-        const cellSize = 16;
+        const cellSize = 15; // 11px cell + 4px gap
 
         while (cursor <= endOfWeek) {
             let weekHtml = '';
