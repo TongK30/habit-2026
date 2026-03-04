@@ -14,6 +14,7 @@ const SHEET_SETTINGS = 'Settings';
 const SHEET_JOURNAL = 'Journal';
 const SHEET_FOCUS_HISTORY = 'FocusHistory';
 const SHEET_FOCUS_XP = 'FocusXP';
+const SHEET_PLAYLIST = 'Playlist';
 
 // ============================================================
 // CORS Headers helper
@@ -53,6 +54,9 @@ function doGet(e) {
       
       case 'getLatestUrl':
         return responseJSON(getLatestDeploymentUrl());
+      
+      case 'getPlaylist':
+        return responseJSON(getPlaylist());
       
       case 'getAll':
       default:
@@ -98,6 +102,12 @@ function doPost(e) {
       
       case 'registerUrl':
         return responseJSON(registerDeploymentUrl(body.url));
+      
+      case 'savePlaylistTrack':
+        return responseJSON(savePlaylistTrack(body.track));
+      
+      case 'deletePlaylistTrack':
+        return responseJSON(deletePlaylistTrack(body.trackId));
       
       default:
         return responseJSON({ success: false, error: 'Action không hợp lệ' });
@@ -191,6 +201,17 @@ function setupSheets() {
     ]);
     settingsSheet.getRange(1, 1, 1, 3).setFontWeight('bold');
     settingsSheet.setFrozenRows(1);
+  }
+
+  // Tạo sheet Playlist (cho music sync)
+  let playlistSheet = ss.getSheetByName(SHEET_PLAYLIST);
+  if (!playlistSheet) {
+    playlistSheet = ss.insertSheet(SHEET_PLAYLIST);
+    playlistSheet.getRange(1, 1, 1, 5).setValues([
+      ['ID', 'Name', 'VideoId', 'URL', 'AddedAt']
+    ]);
+    playlistSheet.getRange(1, 1, 1, 5).setFontWeight('bold');
+    playlistSheet.setFrozenRows(1);
   }
 
   return { success: true, message: 'Setup hoàn tất! Sheets đã được tạo.' };
@@ -339,6 +360,7 @@ function getAllData() {
     journal: allJournal,
     focusHistory: focusData.focusHistory || [],
     focusXP: focusData.focusXP || null,
+    playlist: getPlaylist().playlist || [],
     spreadsheetId: SPREADSHEET_ID
   };
 }
@@ -638,6 +660,79 @@ function syncFocusData(history, xpState) {
     saveFocusXP(xpState);
   }
   return { success: true, message: 'Đã đồng bộ Focus data' };
+}
+
+// ============================================================
+// PLAYLIST FUNCTIONS (Music Sync)
+// ============================================================
+function getPlaylist() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(SHEET_PLAYLIST);
+  if (!sheet) return { success: true, playlist: [] };
+  
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return { success: true, playlist: [] };
+  
+  var playlist = data.slice(1).filter(function(r) { return r[0]; }).map(function(r) {
+    return {
+      id: String(r[0]),
+      name: String(r[1]),
+      videoId: String(r[2]),
+      url: String(r[3]),
+      addedAt: String(r[4])
+    };
+  });
+  
+  return { success: true, playlist: playlist };
+}
+
+function savePlaylistTrack(track) {
+  if (!track || !track.videoId) return { success: false, error: 'Track data required' };
+  
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(SHEET_PLAYLIST);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_PLAYLIST);
+    sheet.getRange(1, 1, 1, 5).setValues([['ID', 'Name', 'VideoId', 'URL', 'AddedAt']]);
+    sheet.getRange(1, 1, 1, 5).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  
+  // Check duplicate by videoId
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][2]) === String(track.videoId)) {
+      return { success: true, message: 'Track already exists' };
+    }
+  }
+  
+  sheet.appendRow([
+    track.id || 'mt_' + Date.now(),
+    track.name || 'YouTube Video',
+    track.videoId,
+    track.url || '',
+    track.addedAt || new Date().toISOString()
+  ]);
+  
+  return { success: true, message: 'Track saved' };
+}
+
+function deletePlaylistTrack(trackId) {
+  if (!trackId) return { success: false, error: 'Track ID required' };
+  
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(SHEET_PLAYLIST);
+  if (!sheet) return { success: false, error: 'Playlist sheet not found' };
+  
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(trackId)) {
+      sheet.deleteRow(i + 1);
+      return { success: true, message: 'Track deleted' };
+    }
+  }
+  
+  return { success: false, error: 'Track not found' };
 }
 
 // ============================================================

@@ -4,7 +4,7 @@
 // ============================================================
 
 // ⚙️ CONFIG
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzSHL4LivyrmUz5BfZkNkhoxBYqPIOrcR5k0Qr7zyzhO4A6zrWQ1VF-CaEIzAWL-Ze0/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxLR1r42Jr6Ltn981HN1EsZdxsRZhwpR2Jkv_1-Ssw0Cw1kpaHadc9sNo7SRO-vwi7B/exec';
 
 // 📡 DEFAULT_SHEET_ID: Paste Spreadsheet ID vào đây (cùng ID trong Code.gs)
 // ID này KHÔNG BAO GIỜ thay đổi → mọi thiết bị tự tìm API URL từ Google Sheets.
@@ -618,6 +618,11 @@ async function loadData() {
             // Merge focus data from getAll response
             if (typeof FocusXP !== 'undefined' && (data.focusHistory || data.focusXP)) {
                 FocusXP.mergeFocusFromAPI(data.focusHistory || [], data.focusXP || null);
+            }
+
+            // 🎵 Merge playlist từ API
+            if (data.playlist && typeof FocusMusic !== 'undefined') {
+                FocusMusic.mergeFromApi(data.playlist);
             }
         }
         else {
@@ -3443,6 +3448,45 @@ const FocusMusic = (() => {
         localStorage.setItem('habitflow_music_playlist', JSON.stringify(playlist));
     }
 
+    // 📡 Sync track lên API (background, không block UI)
+    function syncTrackToApi(track) {
+        if (!API_URL) return;
+        fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'savePlaylistTrack', track }),
+        }).then(r => r.json()).then(d => {
+            if (d.success) console.log('🎵 Track synced to API:', track.name);
+        }).catch(e => console.log('🎵 Sync failed:', e.message));
+    }
+
+    // 📡 Xóa track khỏi API
+    function deleteTrackFromApi(trackId) {
+        if (!API_URL) return;
+        fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'deletePlaylistTrack', trackId }),
+        }).then(r => r.json()).then(d => {
+            if (d.success) console.log('🎵 Track deleted from API:', trackId);
+        }).catch(e => console.log('🎵 Delete failed:', e.message));
+    }
+
+    // 📡 Merge playlist từ API vào local
+    function mergePlaylistFromApi(apiPlaylist) {
+        if (!apiPlaylist || !Array.isArray(apiPlaylist)) return;
+        let changed = false;
+        apiPlaylist.forEach(apiTrack => {
+            if (!playlist.find(t => t.videoId === apiTrack.videoId)) {
+                playlist.push(apiTrack);
+                changed = true;
+            }
+        });
+        if (changed) {
+            savePlaylist();
+            renderPlaylist();
+            console.log('🎵 Playlist merged from API, total:', playlist.length);
+        }
+    }
+
     // Extract YouTube video ID from various URL formats
     function extractYouTubeId(url) {
         if (!url) return null;
@@ -3502,6 +3546,7 @@ const FocusMusic = (() => {
                 };
                 playlist.push(track);
                 savePlaylist();
+                syncTrackToApi(track); // 📡 Sync lên API
                 renderPlaylist();
                 playTrack(track.id);
                 showToast('🎵 Đã thêm và phát nhạc!', 'success');
@@ -3544,6 +3589,7 @@ const FocusMusic = (() => {
 
         playlist.push(track);
         savePlaylist();
+        syncTrackToApi(track); // 📡 Sync lên API
         renderPlaylist();
 
         // Clear inputs
@@ -3559,6 +3605,7 @@ const FocusMusic = (() => {
     function removeTrack(id) {
         playlist = playlist.filter(t => t.id !== id);
         savePlaylist();
+        deleteTrackFromApi(id); // 📡 Xóa khỏi API
         renderPlaylist();
 
         // If removing current track, stop player
@@ -3651,16 +3698,16 @@ const FocusMusic = (() => {
             const iframe = document.getElementById('musicIframe');
             if (iframe && iframe.src && currentTrackId) {
                 iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
-                console.log('🔇 Music paused');
             }
         },
         resumeMusic: () => {
             const iframe = document.getElementById('musicIframe');
             if (iframe && iframe.src && currentTrackId) {
                 iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
-                console.log('🔊 Music resumed');
             }
         },
+        // 📡 Merge playlist từ API
+        mergeFromApi: mergePlaylistFromApi,
     };
 })();
 
