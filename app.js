@@ -2386,10 +2386,12 @@ function showPage(name) {
     document.querySelectorAll('.nav-item').forEach(n => {
         n.classList.toggle('active', n.dataset.page === name);
     });
-    const titles = { dashboard: 'Dashboard', habits: 'Thói quen', stats: 'Thống kê', focus: 'Thời gian tập trung', settings: 'Cài đặt' };
+    const titles = { dashboard: 'Dashboard', habits: 'Thói quen', stats: 'Thống kê', report: 'Báo cáo tuần', meditate: 'Thiền định', focus: 'Thời gian tập trung', settings: 'Cài đặt' };
     document.querySelector('#pageTitle h1').textContent = titles[name] || name;
     closeSidebar();
     if (name === 'stats') { renderStats(); }
+    if (name === 'report') { renderWeeklyReport(); }
+    if (name === 'meditate') { MeditationTimer.updateUI(); }
 
     // Toggle floating focus menu
     const ffm = document.getElementById('focusFloatMenu');
@@ -5266,3 +5268,1168 @@ const FocusFullscreen = (() => {
 
     return { init, enter, exit, syncTimer, renderPlaylist: renderFsPlaylist };
 })();
+
+// ============================================================
+// 📊 WEEKLY REPORT MODULE
+// ============================================================
+let reportWeekOffset = 0; // 0 = tuần này, -1 = tuần trước, ...
+let reportChartInst = null;
+
+function initWeeklyReport() {
+    const prevBtn = document.getElementById('reportPrev');
+    const nextBtn = document.getElementById('reportNext');
+    const todayBtn = document.getElementById('reportToday');
+    if (prevBtn) prevBtn.addEventListener('click', () => { reportWeekOffset--; renderWeeklyReport(); });
+    if (nextBtn) nextBtn.addEventListener('click', () => { reportWeekOffset++; renderWeeklyReport(); });
+    if (todayBtn) todayBtn.addEventListener('click', () => { reportWeekOffset = 0; renderWeeklyReport(); });
+}
+
+function getWeekRange(offset = 0) {
+    const now = new Date();
+    const dow = now.getDay();
+    const diffToMon = dow === 0 ? 6 : dow - 1;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - diffToMon + offset * 7);
+    monday.setHours(0, 0, 0, 0);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        days.push(d);
+    }
+    return { monday, sunday, days };
+}
+
+function renderWeeklyReport() {
+    const week = getWeekRange(reportWeekOffset);
+    const prevWeek = getWeekRange(reportWeekOffset - 1);
+    const dayLabels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+    const dayFullLabels = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
+    const todayStr = formatDate(new Date());
+
+    // --- Header ---
+    const subtitle = document.getElementById('reportSubtitle');
+    if (subtitle) {
+        const fmt = d => `${d.getDate()}/${d.getMonth() + 1}`;
+        const yearStr = week.monday.getFullYear();
+        subtitle.textContent = `${fmt(week.monday)} – ${fmt(week.sunday)}, ${yearStr}`;
+    }
+
+    // --- Calculate data for this week ---
+    const weekData = week.days.map((d, i) => {
+        const dateStr = formatDate(d);
+        const isFuture = d > new Date();
+        const habitsForDay = getActiveHabitsForDate(dateStr);
+        const total = habitsForDay.length;
+        const completionsForDay = state.completions.filter(c => c.date === dateStr && habitsForDay.some(h => h.id === c.habitId));
+        const done = completionsForDay.length;
+        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+        return { date: d, dateStr, dayLabel: dayLabels[i], dayFull: dayFullLabels[i], done, total, pct, isFuture };
+    });
+
+    // --- Previous week data ---
+    const prevData = prevWeek.days.map((d, i) => {
+        const dateStr = formatDate(d);
+        const habitsForDay = getActiveHabitsForDate(dateStr);
+        const total = habitsForDay.length;
+        const done = state.completions.filter(c => c.date === dateStr && habitsForDay.some(h => h.id === c.habitId)).length;
+        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+        return { done, total, pct };
+    });
+
+    // --- Aggregate metrics ---
+    const validDays = weekData.filter(d => !d.isFuture && d.total > 0);
+    const avgPct = validDays.length > 0 ? Math.round(validDays.reduce((s, d) => s + d.pct, 0) / validDays.length) : 0;
+    const totalDone = weekData.reduce((s, d) => s + d.done, 0);
+    const totalPossible = weekData.reduce((s, d) => s + d.total, 0);
+    const perfectDays = validDays.filter(d => d.pct === 100).length;
+
+    const prevValidDays = prevData.filter(d => d.total > 0);
+    const prevAvgPct = prevValidDays.length > 0 ? Math.round(prevValidDays.reduce((s, d) => s + d.pct, 0) / prevValidDays.length) : 0;
+    const prevTotalDone = prevData.reduce((s, d) => s + d.done, 0);
+    const prevPerfectDays = prevValidDays.filter(d => d.pct === 100).length;
+
+    // --- Focus sessions this week ---
+    let focusSessions = 0;
+    let prevFocusSessions = 0;
+    try {
+        const fh = JSON.parse(localStorage.getItem('habitflow_focus_history') || '[]');
+        week.days.forEach(d => {
+            const ds = formatDate(d);
+            focusSessions += fh.filter(f => (f.date || '').startsWith(ds)).length;
+        });
+        prevWeek.days.forEach(d => {
+            const ds = formatDate(d);
+            prevFocusSessions += fh.filter(f => (f.date || '').startsWith(ds)).length;
+        });
+    } catch { /* no focus data */ }
+
+    // --- Change indicators ---
+    function changeTag(curr, prev) {
+        const diff = curr - prev;
+        if (diff > 0) return `<span class="report-ov-change up"><i class="fa-solid fa-arrow-up"></i> +${diff}</span>`;
+        if (diff < 0) return `<span class="report-ov-change down"><i class="fa-solid fa-arrow-down"></i> ${diff}</span>`;
+        return `<span class="report-ov-change same"><i class="fa-solid fa-minus"></i> 0</span>`;
+    }
+    function changeTagPct(curr, prev) {
+        const diff = curr - prev;
+        if (diff > 0) return `<span class="report-ov-change up"><i class="fa-solid fa-arrow-up"></i> +${diff}%</span>`;
+        if (diff < 0) return `<span class="report-ov-change down"><i class="fa-solid fa-arrow-down"></i> ${diff}%</span>`;
+        return `<span class="report-ov-change same"><i class="fa-solid fa-minus"></i> 0%</span>`;
+    }
+
+    // --- 1. Overview Cards ---
+    const ovGrid = document.getElementById('reportOverviewGrid');
+    if (ovGrid) {
+        ovGrid.innerHTML = `
+            <div class="report-overview-card card-completion">
+                <div class="report-ov-icon" style="background: rgba(99,102,241,0.12)">📈</div>
+                <div class="report-ov-info">
+                    <span class="report-ov-label">Hoàn thành TB</span>
+                    <span class="report-ov-value">${avgPct}%</span>
+                    ${changeTagPct(avgPct, prevAvgPct)}
+                </div>
+            </div>
+            <div class="report-overview-card card-total">
+                <div class="report-ov-icon" style="background: rgba(16,185,129,0.12)">✅</div>
+                <div class="report-ov-info">
+                    <span class="report-ov-label">Tổng lượt hoàn thành</span>
+                    <span class="report-ov-value">${totalDone}<small style="font-size:14px;color:var(--text-muted)">/${totalPossible}</small></span>
+                    ${changeTag(totalDone, prevTotalDone)}
+                </div>
+            </div>
+            <div class="report-overview-card card-streak">
+                <div class="report-ov-icon" style="background: rgba(245,158,11,0.12)">🏅</div>
+                <div class="report-ov-info">
+                    <span class="report-ov-label">Ngày hoàn hảo</span>
+                    <span class="report-ov-value">${perfectDays}<small style="font-size:14px;color:var(--text-muted)">/7</small></span>
+                    ${changeTag(perfectDays, prevPerfectDays)}
+                </div>
+            </div>
+            <div class="report-overview-card card-focus">
+                <div class="report-ov-icon" style="background: rgba(6,182,212,0.12)">🎯</div>
+                <div class="report-ov-info">
+                    <span class="report-ov-label">Phiên tập trung</span>
+                    <span class="report-ov-value">${focusSessions}</span>
+                    ${changeTag(focusSessions, prevFocusSessions)}
+                </div>
+            </div>
+        `;
+    }
+
+    // --- 2. Daily Chart ---
+    const chartCanvas = document.getElementById('reportDailyChart');
+    if (chartCanvas) {
+        if (reportChartInst) reportChartInst.destroy();
+        const ctx = chartCanvas.getContext('2d');
+        reportChartInst = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: weekData.map(d => d.dayLabel),
+                datasets: [{
+                    label: 'Hoàn thành (%)',
+                    data: weekData.map(d => d.isFuture ? null : d.pct),
+                    backgroundColor: weekData.map(d => {
+                        if (d.isFuture) return 'rgba(48,54,61,0.4)';
+                        if (d.pct === 100) return 'rgba(16, 185, 129, 0.7)';
+                        if (d.pct >= 60) return 'rgba(99, 102, 241, 0.7)';
+                        if (d.pct > 0) return 'rgba(245, 158, 11, 0.7)';
+                        return 'rgba(239, 68, 68, 0.5)';
+                    }),
+                    borderRadius: 6,
+                    borderSkipped: false,
+                    maxBarThickness: 48,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            title: (items) => {
+                                const idx = items[0]?.dataIndex;
+                                if (idx === undefined) return '';
+                                const d = weekData[idx];
+                                return `${d.dayFull}, ${d.date.getDate()}/${d.date.getMonth() + 1}`;
+                            },
+                            label: (item) => {
+                                const d = weekData[item.dataIndex];
+                                return d.isFuture ? 'Chưa đến' : `${d.done}/${d.total} (${d.pct}%)`;
+                            }
+                        },
+                        backgroundColor: '#1c2128',
+                        titleColor: '#e6edf3',
+                        bodyColor: '#8b949e',
+                        borderColor: '#30363d',
+                        borderWidth: 1,
+                        padding: 10,
+                        cornerRadius: 8,
+                    }
+                },
+                scales: {
+                    y: {
+                        min: 0,
+                        max: 100,
+                        ticks: { color: '#8b949e', callback: v => v + '%', stepSize: 25 },
+                        grid: { color: 'rgba(48,54,61,0.5)' },
+                        border: { display: false }
+                    },
+                    x: {
+                        ticks: { color: '#8b949e', font: { weight: 600 } },
+                        grid: { display: false },
+                        border: { display: false }
+                    }
+                },
+                animation: { duration: 600, easing: 'easeOutQuart' }
+            }
+        });
+    }
+
+    // --- 3. Compare with Previous Week ---
+    const compareEl = document.getElementById('reportCompareContent');
+    if (compareEl) {
+        const compareItems = [
+            { label: 'Hoàn thành trung bình', curr: avgPct + '%', prev: prevAvgPct + '%', pct: avgPct, color: '#6366f1', bg: 'rgba(99,102,241,0.12)', icon: '📊' },
+            { label: 'Tổng lượt hoàn thành', curr: totalDone, prev: prevTotalDone, pct: totalPossible > 0 ? Math.round(totalDone / totalPossible * 100) : 0, color: '#10b981', bg: 'rgba(16,185,129,0.12)', icon: '✅' },
+            { label: 'Ngày hoàn hảo (100%)', curr: perfectDays, prev: prevPerfectDays, pct: Math.round(perfectDays / 7 * 100), color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⭐' },
+            { label: 'Phiên tập trung', curr: focusSessions, prev: prevFocusSessions, pct: Math.min(100, focusSessions * 20), color: '#06b6d4', bg: 'rgba(6,182,212,0.12)', icon: '🎯' },
+        ];
+        compareEl.innerHTML = compareItems.map(item => `
+            <div class="report-compare-item">
+                <div class="report-compare-icon" style="background: ${item.bg}">${item.icon}</div>
+                <div class="report-compare-info">
+                    <span class="report-compare-label">${item.label}</span>
+                    <div class="report-compare-values">
+                        <span class="report-compare-current">${item.curr}</span>
+                        <span class="report-compare-prev">tuần trước: ${item.prev}</span>
+                    </div>
+                    <div class="report-compare-bar">
+                        <div class="report-compare-bar-fill" style="width:${item.pct}%; background:${item.color}"></div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // --- 4. Per-Habit Performance ---
+    const perfTable = document.getElementById('reportPerformanceTable');
+    const perfBadge = document.getElementById('reportPerfBadge');
+    const activeHabits = state.habits.filter(h => h.active !== false);
+    if (perfBadge) perfBadge.textContent = `${activeHabits.length} thói quen`;
+
+    if (perfTable) {
+        const habitPerf = activeHabits.map(h => {
+            let daysActive = 0, doneCount = 0;
+            week.days.forEach(d => {
+                const ds = formatDate(d);
+                if (d > new Date()) return;
+                const dayHabits = getActiveHabitsForDate(ds);
+                if (!dayHabits.some(hh => hh.id === h.id)) return;
+                daysActive++;
+                if (state.completions.some(c => c.habitId === h.id && c.date === ds)) doneCount++;
+            });
+            const pct = daysActive > 0 ? Math.round((doneCount / daysActive) * 100) : 0;
+            const streak = state.stats?.streaks?.[h.id] || 0;
+            return { ...h, doneCount, daysActive, pct, streak };
+        }).sort((a, b) => b.pct - a.pct);
+
+        perfTable.innerHTML = `
+            <div class="report-perf-row header">
+                <span></span>
+                <span>Thói quen</span>
+                <span>Tiến độ</span>
+                <span style="text-align:center">Hoàn thành</span>
+                <span style="text-align:center">Streak</span>
+            </div>
+        ` + habitPerf.map(h => {
+            const barColor = h.pct === 100 ? '#10b981' : (h.pct >= 60 ? '#6366f1' : (h.pct > 0 ? '#f59e0b' : '#ef4444'));
+            const pctColor = h.pct === 100 ? '#10b981' : (h.pct >= 60 ? '#818cf8' : (h.pct > 0 ? '#f59e0b' : '#ef4444'));
+            return `
+                <div class="report-perf-row">
+                    <span class="report-perf-icon">${h.icon || '⭐'}</span>
+                    <span class="report-perf-name">${h.name}</span>
+                    <div class="report-perf-bar-wrap">
+                        <div class="report-perf-bar"><div class="report-perf-bar-fill" style="width:${h.pct}%; background:${barColor}"></div></div>
+                    </div>
+                    <span class="report-perf-count">${h.doneCount}/${h.daysActive}</span>
+                    <span class="report-perf-streak">🔥 ${h.streak}</span>
+                </div>
+            `;
+        }).join('') || '<div class="empty-state-sm">Chưa có thói quen</div>';
+    }
+
+    // --- 5. Best / Worst Day & Most Skipped ---
+    const validWithData = validDays.filter(d => d.total > 0);
+    if (validWithData.length > 0) {
+        const best = validWithData.reduce((a, b) => a.pct > b.pct ? a : b);
+        const worst = validWithData.reduce((a, b) => a.pct < b.pct ? a : b);
+
+        const bestEl = document.getElementById('reportBestDay');
+        const bestDet = document.getElementById('reportBestDayDetail');
+        if (bestEl) bestEl.textContent = `${best.dayFull}, ${best.date.getDate()}/${best.date.getMonth() + 1}`;
+        if (bestDet) bestDet.textContent = `${best.done}/${best.total} hoàn thành (${best.pct}%)`;
+
+        const worstEl = document.getElementById('reportWorstDay');
+        const worstDet = document.getElementById('reportWorstDayDetail');
+        if (worstEl) worstEl.textContent = `${worst.dayFull}, ${worst.date.getDate()}/${worst.date.getMonth() + 1}`;
+        if (worstDet) worstDet.textContent = `${worst.done}/${worst.total} hoàn thành (${worst.pct}%)`;
+    }
+
+    // Most skipped habit
+    const skippedHabits = activeHabits.map(h => {
+        let missed = 0;
+        weekData.forEach(d => {
+            if (d.isFuture || d.total === 0) return;
+            const dayHabits = getActiveHabitsForDate(d.dateStr);
+            if (!dayHabits.some(hh => hh.id === h.id)) return;
+            if (!state.completions.some(c => c.habitId === h.id && c.date === d.dateStr)) missed++;
+        });
+        return { ...h, missed };
+    }).filter(h => h.missed > 0).sort((a, b) => b.missed - a.missed);
+
+    const skippedEl = document.getElementById('reportMostSkipped');
+    const skippedDet = document.getElementById('reportMostSkippedDetail');
+    if (skippedEl) {
+        if (skippedHabits.length > 0) {
+            skippedEl.textContent = `${skippedHabits[0].icon || '⭐'} ${skippedHabits[0].name}`;
+            if (skippedDet) skippedDet.textContent = `Bỏ ${skippedHabits[0].missed} ngày trong tuần`;
+        } else {
+            skippedEl.textContent = 'Không có!';
+            if (skippedDet) skippedDet.textContent = 'Bạn không bỏ ngày nào 🎉';
+        }
+    }
+
+    // --- 6. Smart Tip ---
+    const tipEl = document.getElementById('reportTip');
+    if (tipEl) {
+        let tip = '';
+        if (avgPct === 100) {
+            tip = 'Xuất sắc! Tiếp tục duy trì phong độ này 🔥';
+        } else if (avgPct >= 80) {
+            tip = 'Rất tốt! Hãy cố gắng đạt 100% vào tuần tới 💪';
+        } else if (avgPct >= 50) {
+            if (skippedHabits.length > 0) {
+                tip = `Hãy tập trung cải thiện "${skippedHabits[0].name}" — đây là thói quen bạn hay bỏ nhất.`;
+            } else {
+                tip = 'Khá tốt! Thử đặt mục tiêu nhỏ hơn để dễ hoàn thành hơn.';
+            }
+        } else if (avgPct > 0) {
+            tip = 'Hãy bắt đầu với 1-2 thói quen quan trọng nhất, sau đó tăng dần.';
+        } else {
+            tip = 'Tuần mới, khởi đầu mới! Hãy bắt đầu với 1 thói quen duy nhất hôm nay.';
+        }
+        tipEl.textContent = tip;
+    }
+
+    // --- 7. Mood Summary ---
+    const moodEl = document.getElementById('reportMoodContent');
+    if (moodEl) {
+        const moodData = week.days.map((d, i) => {
+            const ds = formatDate(d);
+            const entry = state.journal.find(j => j.date === ds);
+            return { day: dayLabels[i], date: d, mood: entry?.mood || null, isFuture: d > new Date() };
+        });
+
+        const hasMood = moodData.some(m => m.mood);
+        if (hasMood) {
+            moodEl.innerHTML = moodData.map(m => {
+                if (m.isFuture) return `
+                    <div class="report-mood-item" style="opacity:0.4">
+                        <span class="report-mood-emoji">—</span>
+                        <span class="report-mood-day">${m.day}</span>
+                    </div>`;
+                return `
+                    <div class="report-mood-item">
+                        <span class="report-mood-emoji">${m.mood || '😶'}</span>
+                        <span class="report-mood-day">${m.day}, ${m.date.getDate()}/${m.date.getMonth() + 1}</span>
+                        <span class="report-mood-label">${m.mood ? '' : 'Chưa ghi'}</span>
+                    </div>`;
+            }).join('');
+        } else {
+            moodEl.innerHTML = '<div class="report-mood-empty">😶 Chưa có ghi chú tâm trạng tuần này. Hãy viết ghi chú hàng ngày ở Dashboard!</div>';
+        }
+    }
+}
+
+// Init report navigation on DOMContentLoaded
+document.addEventListener('DOMContentLoaded', () => {
+    initWeeklyReport();
+});
+
+// ============================================================
+// 🧘 MEDITATION TIMER MODULE
+// ============================================================
+const MeditationTimer = (() => {
+    // Breathing techniques
+    const TECHNIQUES = {
+        '478': {
+            name: '4-7-8 Relaxing',
+            phases: [
+                { name: 'Hít vào', duration: 4, cssClass: 'inhale', phase: 'inhale' },
+                { name: 'Giữ hơi', duration: 7, cssClass: 'hold', phase: 'hold1' },
+                { name: 'Thở ra', duration: 8, cssClass: 'exhale', phase: 'exhale' },
+            ],
+            description: 'Kỹ thuật thở 4-7-8 được phát triển bởi Dr. Andrew Weil, giúp giảm stress, cải thiện giấc ngủ và tăng cường sự tập trung. Hít vào 4 giây, giữ hơi 7 giây, và thở ra chậm trong 8 giây.',
+            benefits: ['Giảm stress và lo âu', 'Cải thiện giấc ngủ', 'Tăng tập trung', 'Ổn định nhịp tim'],
+            tip: 'Thở bằng bụng (hô hấp cơ hoành) để đạt hiệu quả tốt nhất. Đặt một tay lên bụng và cảm nhận bụng phồng lên khi hít vào.',
+        },
+        'box': {
+            name: 'Box Breathing',
+            phases: [
+                { name: 'Hít vào', duration: 4, cssClass: 'inhale', phase: 'inhale' },
+                { name: 'Giữ hơi', duration: 4, cssClass: 'hold', phase: 'hold1' },
+                { name: 'Thở ra', duration: 4, cssClass: 'exhale', phase: 'exhale' },
+                { name: 'Giữ', duration: 4, cssClass: 'hold2', phase: 'hold2' },
+            ],
+            description: 'Box Breathing (Thở hộp) được sử dụng bởi Navy SEALs và lính cứu hỏa. Mỗi giai đoạn đều 4 giây, tạo thành hình vuông cân bằng. Giúp kiểm soát cảm xúc trong tình huống áp lực.',
+            benefits: ['Kiểm soát stress cực tốt', 'Tăng khả năng ra quyết định', 'Cải thiện phản xạ', 'Tăng sự tỉnh táo'],
+            tip: 'Hình dung bạn đang vẽ một hình vuông: mỗi cạnh là một giai đoạn. Điều này giúp tâm trí tập trung hơn.',
+        },
+        'calm': {
+            name: 'Calm Breathing',
+            phases: [
+                { name: 'Hít vào', duration: 5, cssClass: 'inhale', phase: 'inhale' },
+                { name: 'Thở ra', duration: 5, cssClass: 'exhale', phase: 'exhale' },
+            ],
+            description: 'Kỹ thuật thở bình tĩnh đơn giản nhất. Chỉ cần hít vào đều đặn 5 giây và thở ra 5 giây. Phù hợp cho người mới bắt đầu hoặc khi cần thư giãn nhanh.',
+            benefits: ['Dễ thực hành', 'Thư giãn nhanh', 'Giảm nhịp tim', 'Phù hợp mọi lúc'],
+            tip: 'Nhắm mắt lại và tập trung vào cảm giác không khí đi qua mũi. Đơn giản nhưng cực kỳ hiệu quả.',
+        },
+        'energize': {
+            name: 'Energizing',
+            phases: [
+                { name: 'Hít vào', duration: 3, cssClass: 'inhale', phase: 'inhale' },
+                { name: 'Thở ra', duration: 3, cssClass: 'exhale', phase: 'exhale' },
+            ],
+            description: 'Thở nhanh giúp tăng năng lượng và sự tỉnh táo. Nhịp thở nhanh hơn kích thích hệ thần kinh giao cảm, giúp bạn tỉnh táo hơn khi buồn ngủ hoặc mệt mỏi.',
+            benefits: ['Tăng năng lượng', 'Chống buồn ngủ', 'Kích thích tinh thần', 'Chuẩn bị cho hoạt động'],
+            tip: 'Thở mạnh hơn bình thường. Dùng kỹ thuật này trước khi tập thể dục hoặc khi cần tỉnh táo.',
+        },
+    };
+
+    let currentTechnique = '478';
+    let sessionMinutes = 5;
+    let isRunning = false;
+    let isPaused = false;
+    let timerInterval = null;
+    let phaseTimeout = null;
+    let remainingSeconds = 0;
+    let cycleCount = 0;
+    let currentPhaseIndex = 0;
+    let phaseSecondsLeft = 0;
+
+    // Persistence
+    const STORAGE_KEY = 'habitflow_meditation';
+    let soundEnabled = true;
+
+    // ── Web Audio API Sound Engine ──
+    const MedSounds = (() => {
+        let audioCtx = null;
+
+        function getCtx() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            return audioCtx;
+        }
+
+        // 🟣 Inhale: ascending tone (C4 → E4), soft sine
+        function playInhale(duration) {
+            if (!soundEnabled) return;
+            const ctx = getCtx();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(261.63, ctx.currentTime); // C4
+            osc.frequency.linearRampToValueAtTime(329.63, ctx.currentTime + duration); // E4
+            gain.gain.setValueAtTime(0, ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 0.3);
+            gain.gain.setValueAtTime(0.12, ctx.currentTime + duration - 0.3);
+            gain.gain.linearRampToValueAtTime(0, ctx.currentTime + duration);
+            osc.connect(gain).connect(ctx.destination);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + duration);
+        }
+
+        // 🔵 Hold: sustained gentle hum (G4), triangle wave
+        function playHold(duration) {
+            if (!soundEnabled) return;
+            const ctx = getCtx();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(392.0, ctx.currentTime); // G4
+            gain.gain.setValueAtTime(0, ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 0.5);
+            gain.gain.setValueAtTime(0.08, ctx.currentTime + duration - 0.5);
+            gain.gain.linearRampToValueAtTime(0, ctx.currentTime + duration);
+            osc.connect(gain).connect(ctx.destination);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + duration);
+        }
+
+        // 🩷 Exhale: descending tone (E4 → C4), soft sine
+        function playExhale(duration) {
+            if (!soundEnabled) return;
+            const ctx = getCtx();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(329.63, ctx.currentTime); // E4
+            osc.frequency.linearRampToValueAtTime(261.63, ctx.currentTime + duration); // C4
+            gain.gain.setValueAtTime(0, ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 0.3);
+            gain.gain.setValueAtTime(0.12, ctx.currentTime + duration - 0.3);
+            gain.gain.linearRampToValueAtTime(0, ctx.currentTime + duration);
+            osc.connect(gain).connect(ctx.destination);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + duration);
+        }
+
+        // 🟡 Hold2: low hum (D4), triangle
+        function playHold2(duration) {
+            if (!soundEnabled) return;
+            const ctx = getCtx();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(293.66, ctx.currentTime); // D4
+            gain.gain.setValueAtTime(0, ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.06, ctx.currentTime + 0.4);
+            gain.gain.setValueAtTime(0.06, ctx.currentTime + duration - 0.4);
+            gain.gain.linearRampToValueAtTime(0, ctx.currentTime + duration);
+            osc.connect(gain).connect(ctx.destination);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + duration);
+        }
+
+        // 🔔 Bell: singing bowl effect for start
+        function playBell() {
+            if (!soundEnabled) return;
+            const ctx = getCtx();
+            const dur = 2.5;
+            // Two layered tones for richness
+            [523.25, 783.99].forEach((freq, i) => { // C5, G5
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, ctx.currentTime);
+                gain.gain.setValueAtTime(i === 0 ? 0.2 : 0.1, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+                osc.connect(gain).connect(ctx.destination);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + dur);
+            });
+        }
+
+        // 🎉 Completion: gentle ascending chime sequence
+        function playCompletion() {
+            if (!soundEnabled) return;
+            const ctx = getCtx();
+            const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+            notes.forEach((freq, i) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.25);
+                gain.gain.setValueAtTime(0, ctx.currentTime + i * 0.25);
+                gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + i * 0.25 + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.25 + 1.5);
+                osc.connect(gain).connect(ctx.destination);
+                osc.start(ctx.currentTime + i * 0.25);
+                osc.stop(ctx.currentTime + i * 0.25 + 1.5);
+            });
+        }
+
+        // 🔊 Phase transition beep (short)
+        function playTransition() {
+            if (!soundEnabled) return;
+            const ctx = getCtx();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
+            gain.gain.setValueAtTime(0.1, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+            osc.connect(gain).connect(ctx.destination);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.15);
+        }
+
+        // Play the right sound for a given phase
+        function playPhase(cssClass, duration) {
+            playTransition(); // Short beep at start of each phase
+            switch (cssClass) {
+                case 'inhale': playInhale(duration); break;
+                case 'hold': playHold(duration); break;
+                case 'exhale': playExhale(duration); break;
+                case 'hold2': playHold2(duration); break;
+            }
+        }
+
+        return { playBell, playCompletion, playPhase, playTransition };
+    })();
+
+    function getStats() {
+        try {
+            return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{"totalMinutes":0,"totalSessions":0}');
+        } catch { return { totalMinutes: 0, totalSessions: 0 }; }
+    }
+
+    function saveStats(stats) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
+    }
+
+    function init() {
+        // Technique buttons
+        document.querySelectorAll('.med-tech-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (isRunning) return;
+                document.querySelectorAll('.med-tech-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentTechnique = btn.dataset.technique;
+                updateTechniqueInfo();
+                updateTimerDisplay();
+            });
+        });
+
+        // Duration buttons
+        document.querySelectorAll('.med-dur-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (isRunning) return;
+                document.querySelectorAll('.med-dur-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                sessionMinutes = parseInt(btn.dataset.minutes);
+                updateTimerDisplay();
+            });
+        });
+
+        // Ambient buttons
+        document.querySelectorAll('.med-amb-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                btn.classList.toggle('active');
+                const sound = btn.dataset.sound;
+                if (typeof AmbientMixer !== 'undefined') {
+                    try { AmbientMixer.toggle(sound); } catch { /* silent */ }
+                }
+            });
+        });
+
+        // Start/Pause button
+        const startBtn = document.getElementById('medBtnStart');
+        if (startBtn) startBtn.addEventListener('click', toggleStartPause);
+
+        // Reset button
+        const resetBtn = document.getElementById('medBtnReset');
+        if (resetBtn) resetBtn.addEventListener('click', resetSession);
+
+        // Sound toggle button
+        const soundBtn = document.getElementById('medBtnSound');
+        if (soundBtn) soundBtn.addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            soundBtn.classList.toggle('active', soundEnabled);
+            soundBtn.innerHTML = soundEnabled
+                ? '<i class="fa-solid fa-volume-high"></i>'
+                : '<i class="fa-solid fa-volume-xmark"></i>';
+        });
+
+        // ── Fullscreen controls ──
+        const fsExit = document.getElementById('medFsExit');
+        if (fsExit) fsExit.addEventListener('click', () => {
+            exitFullscreen();
+        });
+
+        const fsPause = document.getElementById('medFsBtnPause');
+        if (fsPause) fsPause.addEventListener('click', toggleStartPause);
+
+        const fsStop = document.getElementById('medFsBtnStop');
+        if (fsStop) fsStop.addEventListener('click', () => {
+            exitFullscreen();
+            resetSession();
+        });
+
+        const fsSound = document.getElementById('medFsBtnSound');
+        if (fsSound) {
+            fsSound.classList.toggle('active', soundEnabled);
+            fsSound.addEventListener('click', () => {
+                soundEnabled = !soundEnabled;
+                fsSound.classList.toggle('active', soundEnabled);
+                fsSound.innerHTML = soundEnabled
+                    ? '<i class="fa-solid fa-volume-high"></i>'
+                    : '<i class="fa-solid fa-volume-xmark"></i>';
+                // Sync main page button
+                const mainSoundBtn = document.getElementById('medBtnSound');
+                if (mainSoundBtn) {
+                    mainSoundBtn.classList.toggle('active', soundEnabled);
+                    mainSoundBtn.innerHTML = fsSound.innerHTML;
+                }
+            });
+        }
+
+        // ESC key to exit fullscreen
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && document.getElementById('medFullscreen').classList.contains('active')) {
+                exitFullscreen();
+            }
+        });
+
+        updateUI();
+        updateTimerDisplay();
+        updateTechniqueInfo();
+    }
+
+    function updateUI() {
+        const stats = getStats();
+        const totalEl = document.getElementById('medTotalTime');
+        const sessEl = document.getElementById('medTotalSessions');
+        if (totalEl) totalEl.textContent = stats.totalMinutes + ' phút';
+        if (sessEl) sessEl.textContent = stats.totalSessions + ' phiên';
+    }
+
+    function updateTimerDisplay() {
+        remainingSeconds = sessionMinutes * 60;
+        const timerEl = document.getElementById('medBreathTimer');
+        if (timerEl) {
+            const m = Math.floor(remainingSeconds / 60);
+            const s = remainingSeconds % 60;
+            timerEl.textContent = `${m}:${String(s).padStart(2, '0')}`;
+        }
+    }
+
+    function updateTechniqueInfo() {
+        const tech = TECHNIQUES[currentTechnique];
+        if (!tech) return;
+
+        const descEl = document.getElementById('medTechDescription');
+        if (descEl) descEl.textContent = tech.description;
+
+        const benefitsEl = document.getElementById('medBenefitsList');
+        if (benefitsEl) {
+            benefitsEl.innerHTML = tech.benefits.map(b => `<li>${b}</li>`).join('');
+        }
+
+        const tipEl = document.getElementById('medProTip');
+        if (tipEl) tipEl.textContent = tech.tip;
+
+        // Update phase labels visibility
+        const tech_phases = tech.phases;
+        const labels = document.querySelector('.med-phase-labels');
+        const bar = document.getElementById('medPhaseBar');
+        if (labels && bar) {
+            if (tech_phases.length === 2) {
+                labels.innerHTML = '<span>Hít vào</span><span>Thở ra</span>';
+                bar.innerHTML = `
+                    <div class="med-phase-dot active" data-phase="inhale"></div>
+                    <div class="med-phase-line"></div>
+                    <div class="med-phase-dot" data-phase="exhale"></div>
+                `;
+            } else if (tech_phases.length === 3) {
+                labels.innerHTML = '<span>Hít vào</span><span>Giữ</span><span>Thở ra</span>';
+                bar.innerHTML = `
+                    <div class="med-phase-dot active" data-phase="inhale"></div>
+                    <div class="med-phase-line"></div>
+                    <div class="med-phase-dot" data-phase="hold1"></div>
+                    <div class="med-phase-line"></div>
+                    <div class="med-phase-dot" data-phase="exhale"></div>
+                `;
+            } else {
+                labels.innerHTML = '<span>Hít vào</span><span>Giữ</span><span>Thở ra</span><span>Giữ</span>';
+                bar.innerHTML = `
+                    <div class="med-phase-dot active" data-phase="inhale"></div>
+                    <div class="med-phase-line"></div>
+                    <div class="med-phase-dot" data-phase="hold1"></div>
+                    <div class="med-phase-line"></div>
+                    <div class="med-phase-dot" data-phase="exhale"></div>
+                    <div class="med-phase-line"></div>
+                    <div class="med-phase-dot" data-phase="hold2"></div>
+                `;
+            }
+        }
+    }
+
+    function toggleStartPause() {
+        if (!isRunning) {
+            startSession();
+        } else if (isPaused) {
+            resumeSession();
+        } else {
+            pauseSession();
+        }
+    }
+
+    function startSession() {
+        isRunning = true;
+        isPaused = false;
+        cycleCount = 0;
+        currentPhaseIndex = 0;
+        remainingSeconds = sessionMinutes * 60;
+
+        const startBtn = document.getElementById('medBtnStart');
+        const resetBtn = document.getElementById('medBtnReset');
+        if (startBtn) {
+            startBtn.innerHTML = '<i class="fa-solid fa-pause"></i> TẠM DỪNG';
+        }
+        if (resetBtn) resetBtn.style.display = 'flex';
+
+        const outer = document.getElementById('medBreathOuter');
+        if (outer) outer.classList.add('active');
+
+        const instruction = document.getElementById('medInstruction');
+        if (instruction) instruction.classList.add('active');
+
+        document.getElementById('medCycleCount').textContent = '0';
+
+        // 🔔 Play start bell
+        MedSounds.playBell();
+
+        // 📺 Enter fullscreen mode
+        enterFullscreen();
+
+        startMainTimer();
+        runPhase();
+    }
+
+    function enterFullscreen() {
+        const fsEl = document.getElementById('medFullscreen');
+        if (!fsEl) return;
+
+        // Set technique name
+        const tech = TECHNIQUES[currentTechnique];
+        const icons = { '478': '🌙', 'box': '🔲', 'calm': '🍃', 'energize': '⚡' };
+        const techEl = document.getElementById('medFsTechnique');
+        if (techEl) techEl.textContent = `${icons[currentTechnique] || ''} ${tech.name}`;
+
+        // Build phase bar for current technique
+        const fsPhaseBar = document.getElementById('medFsPhaseBar');
+        if (fsPhaseBar) {
+            const phases = tech.phases;
+            let html = '';
+            phases.forEach((p, i) => {
+                if (i > 0) html += '<div class="med-fs-phase-line"></div>';
+                html += `<div class="med-fs-phase-dot${i === 0 ? ' active' : ''}" data-phase="${p.phase}"></div>`;
+            });
+            fsPhaseBar.innerHTML = html;
+        }
+
+        document.getElementById('medFsCycleCount').textContent = '0';
+
+        // Sync sound button
+        const fsSound = document.getElementById('medFsBtnSound');
+        if (fsSound) {
+            fsSound.classList.toggle('active', soundEnabled);
+            fsSound.innerHTML = soundEnabled
+                ? '<i class="fa-solid fa-volume-high"></i>'
+                : '<i class="fa-solid fa-volume-xmark"></i>';
+        }
+
+        // Show overlay
+        fsEl.classList.add('active');
+
+        // Request browser fullscreen API
+        try {
+            if (fsEl.requestFullscreen) fsEl.requestFullscreen();
+            else if (fsEl.webkitRequestFullscreen) fsEl.webkitRequestFullscreen();
+        } catch { /* silent */ }
+    }
+
+    function exitFullscreen() {
+        const fsEl = document.getElementById('medFullscreen');
+        if (fsEl) fsEl.classList.remove('active');
+
+        // Exit browser fullscreen
+        try {
+            if (document.exitFullscreen) document.exitFullscreen();
+            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        } catch { /* silent */ }
+    }
+
+    function pauseSession() {
+        isPaused = true;
+        clearInterval(timerInterval);
+        clearTimeout(phaseTimeout);
+
+        const startBtn = document.getElementById('medBtnStart');
+        if (startBtn) {
+            startBtn.innerHTML = '<i class="fa-solid fa-play"></i> TIẾP TỤC';
+            startBtn.classList.add('paused');
+        }
+
+        const ring = document.getElementById('medBreathRing');
+        if (ring) ring.style.transitionDuration = '0s';
+
+        const instruction = document.getElementById('medInstruction');
+        if (instruction) instruction.textContent = '⏸ Tạm dừng...';
+
+        // Sync fullscreen
+        const fsPause = document.getElementById('medFsBtnPause');
+        if (fsPause) {
+            fsPause.innerHTML = '<i class="fa-solid fa-play"></i>';
+            fsPause.classList.add('paused');
+        }
+        const fsInstr = document.getElementById('medFsInstruction');
+        if (fsInstr) fsInstr.textContent = '⏸ Tạm dừng...';
+        const fsRing = document.getElementById('medFsRing');
+        if (fsRing) fsRing.style.transitionDuration = '0s';
+    }
+
+    function resumeSession() {
+        isPaused = false;
+
+        const startBtn = document.getElementById('medBtnStart');
+        if (startBtn) {
+            startBtn.innerHTML = '<i class="fa-solid fa-pause"></i> TẠM DỪNG';
+            startBtn.classList.remove('paused');
+        }
+
+        const ring = document.getElementById('medBreathRing');
+        if (ring) ring.style.transitionDuration = '';
+
+        // Sync fullscreen
+        const fsPause = document.getElementById('medFsBtnPause');
+        if (fsPause) {
+            fsPause.innerHTML = '<i class="fa-solid fa-pause"></i>';
+            fsPause.classList.remove('paused');
+        }
+        const fsRing = document.getElementById('medFsRing');
+        if (fsRing) fsRing.style.transitionDuration = '';
+
+        startMainTimer();
+        runPhase();
+    }
+
+    function resetSession() {
+        isRunning = false;
+        isPaused = false;
+        clearInterval(timerInterval);
+        clearTimeout(phaseTimeout);
+
+        const startBtn = document.getElementById('medBtnStart');
+        const resetBtn = document.getElementById('medBtnReset');
+        if (startBtn) {
+            startBtn.innerHTML = '<i class="fa-solid fa-play"></i> BẮT ĐẦU';
+            startBtn.classList.remove('paused');
+        }
+        if (resetBtn) resetBtn.style.display = 'none';
+
+        const ring = document.getElementById('medBreathRing');
+        if (ring) {
+            ring.className = 'med-breath-ring';
+            ring.style.transitionDuration = '';
+        }
+
+        const outer = document.getElementById('medBreathOuter');
+        if (outer) outer.classList.remove('active');
+
+        const instruction = document.getElementById('medInstruction');
+        if (instruction) {
+            instruction.textContent = 'Chọn kỹ thuật thở và nhấn BẮT ĐẦU';
+            instruction.classList.remove('active');
+        }
+
+        const breathText = document.getElementById('medBreathText');
+        if (breathText) breathText.textContent = 'Sẵn sàng';
+
+        document.getElementById('medCycleCount').textContent = '0';
+
+        // Reset all phase dots
+        document.querySelectorAll('.med-phase-dot').forEach(d => d.classList.remove('active'));
+        const firstDot = document.querySelector('.med-phase-dot');
+        if (firstDot) firstDot.classList.add('active');
+
+        updateTimerDisplay();
+
+        // Close fullscreen
+        exitFullscreen();
+    }
+
+    function startMainTimer() {
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            remainingSeconds--;
+            const timerEl = document.getElementById('medBreathTimer');
+            if (timerEl) {
+                const m = Math.floor(Math.max(0, remainingSeconds) / 60);
+                const s = Math.max(0, remainingSeconds) % 60;
+                const timeStr = `${m}:${String(s).padStart(2, '0')}`;
+                timerEl.textContent = timeStr;
+                // Sync fullscreen timer
+                const fsTimer = document.getElementById('medFsTimer');
+                if (fsTimer) fsTimer.textContent = timeStr;
+            }
+
+            if (remainingSeconds <= 0) {
+                completeSession();
+            }
+        }, 1000);
+    }
+
+    function runPhase() {
+        if (!isRunning || isPaused) return;
+
+        const tech = TECHNIQUES[currentTechnique];
+        const phases = tech.phases;
+        const phase = phases[currentPhaseIndex % phases.length];
+
+        // Update ring animation
+        const ring = document.getElementById('medBreathRing');
+        if (ring) {
+            ring.className = 'med-breath-ring';
+            // Force reflow
+            void ring.offsetWidth;
+            ring.classList.add(phase.cssClass);
+            ring.style.transitionDuration = phase.duration + 's';
+        }
+
+        // 🔊 Play phase sound
+        MedSounds.playPhase(phase.cssClass, phase.duration);
+
+        // Update text
+        const breathText = document.getElementById('medBreathText');
+        if (breathText) {
+            breathText.textContent = phase.name;
+            // Color based on phase
+            if (phase.cssClass === 'inhale') breathText.style.color = '#a78bfa';
+            else if (phase.cssClass === 'hold') breathText.style.color = '#06b6d4';
+            else if (phase.cssClass === 'exhale') breathText.style.color = '#ec4899';
+            else if (phase.cssClass === 'hold2') breathText.style.color = '#f59e0b';
+        }
+
+        const instruction = document.getElementById('medInstruction');
+        if (instruction) {
+            const texts = {
+                'inhale': '🌬️ Hít vào từ từ qua mũi...',
+                'hold': '⏸️ Giữ hơi thở...',
+                'exhale': '💨 Thở ra chậm qua miệng...',
+                'hold2': '⏸️ Giữ yên, tĩnh lặng...',
+            };
+            instruction.textContent = texts[phase.cssClass] || phase.name;
+        }
+
+        // Update phase dots (both normal and fullscreen)
+        document.querySelectorAll('.med-phase-dot').forEach(d => d.classList.remove('active'));
+        document.querySelectorAll(`.med-phase-dot[data-phase="${phase.phase}"]`).forEach(d => d.classList.add('active'));
+        document.querySelectorAll('.med-fs-phase-dot').forEach(d => d.classList.remove('active'));
+        document.querySelectorAll(`.med-fs-phase-dot[data-phase="${phase.phase}"]`).forEach(d => d.classList.add('active'));
+
+        // Sync fullscreen ring
+        const fsRing = document.getElementById('medFsRing');
+        if (fsRing) {
+            fsRing.className = 'med-fs-breath-ring';
+            void fsRing.offsetWidth;
+            fsRing.classList.add(phase.cssClass);
+            fsRing.style.transitionDuration = phase.duration + 's';
+        }
+
+        // Sync fullscreen text
+        const fsText = document.getElementById('medFsText');
+        if (fsText) {
+            fsText.textContent = phase.name;
+            if (phase.cssClass === 'inhale') fsText.style.color = '#a78bfa';
+            else if (phase.cssClass === 'hold') fsText.style.color = '#06b6d4';
+            else if (phase.cssClass === 'exhale') fsText.style.color = '#ec4899';
+            else if (phase.cssClass === 'hold2') fsText.style.color = '#f59e0b';
+        }
+
+        // Sync fullscreen instruction
+        const fsInstr = document.getElementById('medFsInstruction');
+        if (fsInstr) {
+            const texts = {
+                'inhale': '🌬️ Hít vào từ từ qua mũi...',
+                'hold': '⏸️ Giữ hơi thở...',
+                'exhale': '💨 Thở ra chậm qua miệng...',
+                'hold2': '⏸️ Giữ yên, tĩnh lặng...',
+            };
+            fsInstr.textContent = texts[phase.cssClass] || phase.name;
+        }
+
+        // Count cycle
+        if (currentPhaseIndex > 0 && currentPhaseIndex % phases.length === 0) {
+            cycleCount++;
+            document.getElementById('medCycleCount').textContent = cycleCount;
+            const fsCycle = document.getElementById('medFsCycleCount');
+            if (fsCycle) fsCycle.textContent = cycleCount;
+        }
+
+        // Schedule next phase
+        phaseTimeout = setTimeout(() => {
+            currentPhaseIndex++;
+            runPhase();
+        }, phase.duration * 1000);
+    }
+
+    function completeSession() {
+        clearInterval(timerInterval);
+        clearTimeout(phaseTimeout);
+        isRunning = false;
+
+        // Exit fullscreen first
+        exitFullscreen();
+        // Save stats
+        const stats = getStats();
+        stats.totalMinutes += sessionMinutes;
+        stats.totalSessions += 1;
+        saveStats(stats);
+        updateUI();
+
+        // Show completion overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'med-complete-overlay';
+        overlay.innerHTML = `
+            <div class="med-complete-card">
+                <div class="med-complete-icon">🧘✨</div>
+                <h3>Phiên thiền hoàn thành!</h3>
+                <p>Tuyệt vời! Bạn đã hoàn thành ${sessionMinutes} phút thiền định.</p>
+                <div class="med-complete-stats">
+                    <div class="med-complete-stat">
+                        <span class="med-complete-stat-value">${sessionMinutes}</span>
+                        <span class="med-complete-stat-label">Phút</span>
+                    </div>
+                    <div class="med-complete-stat">
+                        <span class="med-complete-stat-value">${cycleCount}</span>
+                        <span class="med-complete-stat-label">Chu kỳ thở</span>
+                    </div>
+                    <div class="med-complete-stat">
+                        <span class="med-complete-stat-value">${stats.totalSessions}</span>
+                        <span class="med-complete-stat-label">Tổng phiên</span>
+                    </div>
+                </div>
+                <button class="med-complete-btn" onclick="this.closest('.med-complete-overlay').remove(); MeditationTimer.reset();">
+                    <i class="fa-solid fa-check"></i> Hoàn tất
+                </button>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                overlay.remove();
+                MeditationTimer.reset();
+            }
+        });
+
+        // 🎉 Play completion chime
+        MedSounds.playCompletion();
+
+        // Toast notification
+        try {
+            if (typeof showToast !== 'undefined') {
+                showToast('🧘 Phiên thiền hoàn thành! +' + sessionMinutes + ' phút', 'success');
+            }
+        } catch { /* silent */ }
+    }
+
+    return {
+        init,
+        updateUI,
+        reset: resetSession,
+    };
+})();
+
+// Init meditation on DOMContentLoaded
+document.addEventListener('DOMContentLoaded', () => {
+    MeditationTimer.init();
+});

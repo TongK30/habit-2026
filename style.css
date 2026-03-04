@@ -8439,6 +8439,1502 @@ html {
     box-shadow: 0 0 16px rgba(139, 92, 246, 0.15);
 }
 
+/* ── WEEKLY REPORT PAGE ──────────────────────────── */
+.report-page {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.report-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.report-header h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.report-subtitle {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+.report-nav {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.report-nav-btn {
+    width: 34px;
+    height: 34px;
+    background: var(--bg-card2);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    display: grid;
+    place-items: center;
+    transition: var(--transition);
+}
+
+.report-nav-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.report-nav-today {
+    padding: 7px 16px;
+    background: var(--bg-card2);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    transition: var(--transition);
+}
+
+.report-nav-today:hover {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+
+/* Overview Cards Grid */
+.report-overview-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+
+.report-overview-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    position: relative;
+    overflow: hidden;
+    transition: var(--transition);
+}
+
+.report-overview-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.report-overview-card.card-completion::before {
+    background: linear-gradient(90deg, #6366f1, #818cf8);
+}
+
+.report-overview-card.card-streak::before {
+    background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.report-overview-card.card-total::before {
+    background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.report-overview-card.card-focus::before {
+    background: linear-gradient(90deg, #06b6d4, #22d3ee);
+}
+
+.report-overview-card:hover {
+    border-color: rgba(99, 102, 241, 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.report-ov-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.report-ov-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.report-ov-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.report-ov-value {
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--text-primary);
+    display: block;
+    line-height: 1.1;
+}
+
+.report-ov-change {
+    font-size: 11px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-top: 6px;
+    padding: 2px 8px;
+    border-radius: 20px;
+}
+
+.report-ov-change.up {
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.12);
+}
+
+.report-ov-change.down {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.12);
+}
+
+.report-ov-change.same {
+    color: var(--text-muted);
+    background: rgba(139, 148, 158, 0.12);
+}
+
+/* Main Grid (Chart + Compare) */
+.report-main-grid {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 16px;
+}
+
+.report-chart-card .chart-wrap {
+    padding: 8px 0;
+}
+
+/* Compare Card */
+.report-compare-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-top: 8px;
+}
+
+.report-compare-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.report-compare-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.report-compare-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.report-compare-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    display: block;
+    margin-bottom: 2px;
+}
+
+.report-compare-values {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.report-compare-current {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.report-compare-prev {
+    font-size: 12px;
+    color: var(--text-dim);
+}
+
+.report-compare-bar {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    margin-top: 6px;
+    overflow: hidden;
+    position: relative;
+}
+
+.report-compare-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.6s ease;
+}
+
+/* Performance Table */
+.report-performance-card {
+    overflow: hidden;
+}
+
+.report-performance-badge {
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--bg-card2);
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+}
+
+.report-performance-table {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 8px;
+}
+
+.report-perf-row {
+    display: grid;
+    grid-template-columns: 32px 1fr 90px 70px 80px;
+    align-items: center;
+    padding: 10px 12px;
+    border-radius: 8px;
+    gap: 12px;
+    transition: background 0.15s;
+}
+
+.report-perf-row:hover {
+    background: var(--bg-card2);
+}
+
+.report-perf-row.header {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.report-perf-icon {
+    font-size: 18px;
+    text-align: center;
+}
+
+.report-perf-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.report-perf-bar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.report-perf-bar {
+    flex: 1;
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.report-perf-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.report-perf-pct {
+    font-size: 13px;
+    font-weight: 700;
+    min-width: 40px;
+    text-align: right;
+}
+
+.report-perf-count {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.report-perf-streak {
+    font-size: 12px;
+    color: var(--amber);
+    text-align: center;
+    font-weight: 600;
+}
+
+/* Insights Grid */
+.report-insights-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+
+.report-insight-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 18px !important;
+    border: 1px solid var(--border);
+    transition: var(--transition);
+}
+
+.report-insight-card:hover {
+    border-color: rgba(99, 102, 241, 0.3);
+    transform: translateY(-2px);
+}
+
+.report-insight-icon {
+    font-size: 28px;
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    background: var(--bg-card2);
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+}
+
+.report-best-day .report-insight-icon {
+    background: rgba(245, 158, 11, 0.12);
+}
+
+.report-worst-day .report-insight-icon {
+    background: rgba(239, 68, 68, 0.12);
+}
+
+.report-most-skipped .report-insight-icon {
+    background: rgba(249, 115, 22, 0.12);
+}
+
+.report-tip .report-insight-icon {
+    background: rgba(99, 102, 241, 0.12);
+}
+
+.report-insight-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.report-insight-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.report-insight-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.3;
+}
+
+.report-insight-detail {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* Mood Card */
+.report-mood-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-top: 8px;
+    flex-wrap: wrap;
+}
+
+.report-mood-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 16px;
+    background: var(--bg-card2);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    min-width: 80px;
+    transition: var(--transition);
+}
+
+.report-mood-item:hover {
+    border-color: rgba(236, 72, 153, 0.3);
+    transform: translateY(-2px);
+}
+
+.report-mood-emoji {
+    font-size: 28px;
+}
+
+.report-mood-day {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.report-mood-label {
+    font-size: 10px;
+    color: var(--text-dim);
+}
+
+.report-mood-empty {
+    color: var(--text-dim);
+    font-size: 13px;
+    padding: 16px;
+    text-align: center;
+    width: 100%;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .report-overview-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .report-main-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .report-insights-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .report-overview-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .report-insights-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .report-perf-row {
+        grid-template-columns: 28px 1fr 70px 60px;
+    }
+
+    .report-perf-row .report-perf-streak {
+        display: none;
+    }
+
+    .report-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+/* ── MEDITATION TIMER PAGE ────────────────────────── */
+.meditate-page {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.meditate-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.meditate-header h2 {
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.meditate-subtitle {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+.meditate-session-stats {
+    display: flex;
+    gap: 16px;
+}
+
+.meditate-stat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text-muted);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    border-radius: 8px;
+}
+
+.meditate-stat i {
+    color: #a78bfa;
+}
+
+/* Layout */
+.meditate-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr 260px;
+    gap: 20px;
+    align-items: start;
+}
+
+/* Settings Panel (Left) */
+.meditate-settings-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.med-section-title {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+}
+
+.med-technique-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.med-tech-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: var(--transition);
+    text-align: left;
+    color: var(--text-primary);
+}
+
+.med-tech-btn:hover {
+    border-color: rgba(167, 139, 250, 0.4);
+    background: var(--bg-card2);
+}
+
+.med-tech-btn.active {
+    border-color: #a78bfa;
+    background: rgba(167, 139, 250, 0.1);
+    box-shadow: 0 0 16px rgba(167, 139, 250, 0.15);
+}
+
+.med-tech-icon {
+    font-size: 20px;
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    background: var(--bg-card2);
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+.med-tech-btn.active .med-tech-icon {
+    background: rgba(167, 139, 250, 0.15);
+}
+
+.med-tech-name {
+    font-size: 12px;
+    font-weight: 600;
+    display: block;
+}
+
+.med-tech-desc {
+    font-size: 10px;
+    color: var(--text-dim);
+    display: block;
+    margin-top: 2px;
+}
+
+/* Duration Grid */
+.med-duration-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+}
+
+.med-dur-btn {
+    padding: 8px 4px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.med-dur-btn:hover {
+    border-color: rgba(167, 139, 250, 0.4);
+    color: var(--text-primary);
+}
+
+.med-dur-btn.active {
+    background: #a78bfa;
+    border-color: #a78bfa;
+    color: #fff;
+    box-shadow: 0 0 12px rgba(167, 139, 250, 0.3);
+}
+
+/* Ambient Grid */
+.med-ambient-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+}
+
+.med-amb-btn {
+    width: 100%;
+    aspect-ratio: 1;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 22px;
+    cursor: pointer;
+    transition: var(--transition);
+    display: grid;
+    place-items: center;
+}
+
+.med-amb-btn:hover {
+    border-color: rgba(167, 139, 250, 0.4);
+    transform: scale(1.05);
+}
+
+.med-amb-btn.active {
+    border-color: #a78bfa;
+    background: rgba(167, 139, 250, 0.12);
+    box-shadow: 0 0 12px rgba(167, 139, 250, 0.2);
+}
+
+/* CENTER: Breathing Animation */
+.meditate-center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.med-breath-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px 24px;
+    text-align: center;
+    width: 100%;
+    max-width: 440px;
+}
+
+.med-instruction {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+    font-weight: 500;
+    min-height: 20px;
+}
+
+.med-instruction.active {
+    color: #a78bfa;
+    font-weight: 600;
+    font-size: 16px;
+}
+
+/* Breathing Circle */
+.med-breath-wrap {
+    display: flex;
+    justify-content: center;
+    margin: 16px 0 24px;
+}
+
+.med-breath-outer {
+    width: 220px;
+    height: 220px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.med-breath-ring {
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(167, 139, 250, 0.08) 0%, transparent 70%);
+    border: 3px solid rgba(167, 139, 250, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    position: relative;
+    z-index: 2;
+}
+
+.med-breath-ring.breathing {
+    animation: none;
+    /* Will be set dynamically */
+}
+
+.med-breath-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.med-breath-text {
+    font-size: 16px;
+    font-weight: 700;
+    color: #a78bfa;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.med-breath-timer {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Breathing animations */
+.med-breath-ring.inhale {
+    transform: scale(1.25);
+    border-color: rgba(167, 139, 250, 0.6);
+    box-shadow: 0 0 40px rgba(167, 139, 250, 0.25), 0 0 80px rgba(167, 139, 250, 0.1);
+    background: radial-gradient(circle, rgba(167, 139, 250, 0.15) 0%, transparent 70%);
+}
+
+.med-breath-ring.hold {
+    transform: scale(1.25);
+    border-color: rgba(6, 182, 212, 0.6);
+    box-shadow: 0 0 40px rgba(6, 182, 212, 0.25), 0 0 80px rgba(6, 182, 212, 0.1);
+    background: radial-gradient(circle, rgba(6, 182, 212, 0.12) 0%, transparent 70%);
+}
+
+.med-breath-ring.exhale {
+    transform: scale(0.85);
+    border-color: rgba(236, 72, 153, 0.4);
+    box-shadow: 0 0 20px rgba(236, 72, 153, 0.15);
+    background: radial-gradient(circle, rgba(236, 72, 153, 0.08) 0%, transparent 70%);
+}
+
+.med-breath-ring.hold2 {
+    transform: scale(0.85);
+    border-color: rgba(245, 158, 11, 0.4);
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.15);
+    background: radial-gradient(circle, rgba(245, 158, 11, 0.08) 0%, transparent 70%);
+}
+
+/* Floating particles */
+.med-particle {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #a78bfa;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.med-breath-outer.active .med-particle {
+    animation: medParticleFloat 8s ease-in-out infinite;
+    animation-delay: var(--delay);
+}
+
+@keyframes medParticleFloat {
+
+    0%,
+    100% {
+        opacity: 0;
+        transform: translate(0, 0) scale(0.5);
+    }
+
+    25% {
+        opacity: 0.6;
+    }
+
+    50% {
+        opacity: 0.8;
+        transform: translate(var(--x), var(--y)) scale(1.2);
+    }
+
+    75% {
+        opacity: 0.4;
+    }
+}
+
+/* Phase indicator */
+.med-phase-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin-bottom: 6px;
+}
+
+.med-phase-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.med-phase-dot.active {
+    background: #a78bfa;
+    box-shadow: 0 0 10px rgba(167, 139, 250, 0.5);
+    transform: scale(1.3);
+}
+
+.med-phase-dot[data-phase="hold1"].active,
+.med-phase-dot[data-phase="hold2"].active {
+    background: #06b6d4;
+    box-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
+}
+
+.med-phase-dot[data-phase="exhale"].active {
+    background: #ec4899;
+    box-shadow: 0 0 10px rgba(236, 72, 153, 0.5);
+}
+
+.med-phase-line {
+    width: 24px;
+    height: 2px;
+    background: var(--border);
+    flex-shrink: 0;
+}
+
+.med-phase-labels {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-bottom: 20px;
+}
+
+/* Controls */
+.med-controls {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.med-btn-start {
+    padding: 12px 36px;
+    background: linear-gradient(135deg, #a78bfa, #7c3aed);
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: var(--transition);
+    box-shadow: 0 4px 20px rgba(167, 139, 250, 0.3);
+    letter-spacing: 1px;
+}
+
+.med-btn-start:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 28px rgba(167, 139, 250, 0.4);
+}
+
+.med-btn-start.paused {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    box-shadow: 0 4px 20px rgba(245, 158, 11, 0.3);
+}
+
+.med-btn-reset {
+    padding: 12px 24px;
+    background: var(--bg-card2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: var(--transition);
+}
+
+.med-btn-reset:hover {
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
+.med-btn-sound {
+    width: 44px;
+    height: 44px;
+    background: var(--bg-card2);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    color: var(--text-dim);
+    font-size: 14px;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: var(--transition);
+}
+
+.med-btn-sound:hover {
+    border-color: #a78bfa;
+    color: #a78bfa;
+}
+
+.med-btn-sound.active {
+    background: rgba(167, 139, 250, 0.15);
+    border-color: #a78bfa;
+    color: #a78bfa;
+}
+
+.med-cycle-counter {
+    font-size: 13px;
+    color: var(--text-dim);
+}
+
+.med-cycle-counter span {
+    font-weight: 700;
+    color: #a78bfa;
+    font-size: 16px;
+}
+
+/* RIGHT: Info Panel */
+.meditate-info-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.med-info-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+}
+
+.med-info-card h4 {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.med-info-card p {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.6;
+}
+
+.med-benefits-list {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.med-benefits-list li {
+    font-size: 12px;
+    color: var(--text-muted);
+    padding-left: 16px;
+    position: relative;
+}
+
+.med-benefits-list li::before {
+    content: '✦';
+    position: absolute;
+    left: 0;
+    color: #a78bfa;
+    font-size: 10px;
+}
+
+.med-tip-card {
+    background: linear-gradient(135deg, rgba(167, 139, 250, 0.08), rgba(124, 58, 237, 0.05));
+    border-color: rgba(167, 139, 250, 0.2);
+}
+
+.med-tip-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #a78bfa;
+    background: rgba(167, 139, 250, 0.15);
+    padding: 4px 10px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+}
+
+/* ── FULLSCREEN MEDITATION MODE ───────────────────── */
+.med-fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: #06050e;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    animation: medFsIn 0.6s ease;
+    overflow: hidden;
+}
+
+.med-fullscreen.active {
+    display: flex;
+}
+
+@keyframes medFsIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+/* Animated gradient background */
+.med-fs-bg {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 30% 50%, rgba(124, 58, 237, 0.12) 0%, transparent 60%),
+        radial-gradient(ellipse at 70% 30%, rgba(6, 182, 212, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 80%, rgba(236, 72, 153, 0.06) 0%, transparent 50%);
+    animation: medFsBgPulse 12s ease-in-out infinite alternate;
+}
+
+@keyframes medFsBgPulse {
+    0% {
+        opacity: 0.6;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0.7;
+        transform: scale(1.05);
+    }
+}
+
+/* Background floating particles */
+.med-fs-particle {
+    position: absolute;
+    left: var(--fsx);
+    top: var(--fsy);
+    width: var(--fssize);
+    height: var(--fssize);
+    border-radius: 50%;
+    background: rgba(167, 139, 250, 0.6);
+    animation: medFsParticle 10s ease-in-out infinite;
+    animation-delay: var(--fsd);
+}
+
+@keyframes medFsParticle {
+
+    0%,
+    100% {
+        transform: translateY(0) scale(1);
+        opacity: 0.2;
+    }
+
+    50% {
+        transform: translateY(-30px) scale(1.5);
+        opacity: 0.7;
+    }
+}
+
+/* Top bar */
+.med-fs-topbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 28px;
+    z-index: 2;
+}
+
+.med-fs-technique {
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(167, 139, 250, 0.7);
+    letter-spacing: 0.5px;
+}
+
+.med-fs-exit {
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 14px;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(8px);
+}
+
+.med-fs-exit:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    border-color: rgba(167, 139, 250, 0.4);
+}
+
+/* Center content */
+.med-fs-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 2;
+    gap: 24px;
+}
+
+.med-fs-instruction {
+    font-size: 20px;
+    font-weight: 500;
+    color: rgba(167, 139, 250, 0.8);
+    letter-spacing: 0.5px;
+    text-align: center;
+    min-height: 28px;
+    transition: color 0.3s ease;
+}
+
+/* Fullscreen breathing circle */
+.med-fs-breath-wrap {
+    position: relative;
+}
+
+.med-fs-breath-ring {
+    width: 280px;
+    height: 280px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(167, 139, 250, 0.06) 0%, transparent 70%);
+    border: 3px solid rgba(167, 139, 250, 0.2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+}
+
+.med-fs-breath-ring.inhale {
+    transform: scale(1.3);
+    border-color: rgba(167, 139, 250, 0.7);
+    box-shadow: 0 0 60px rgba(167, 139, 250, 0.3), 0 0 120px rgba(167, 139, 250, 0.1), inset 0 0 40px rgba(167, 139, 250, 0.05);
+    background: radial-gradient(circle, rgba(167, 139, 250, 0.15) 0%, transparent 70%);
+}
+
+.med-fs-breath-ring.hold {
+    transform: scale(1.3);
+    border-color: rgba(6, 182, 212, 0.7);
+    box-shadow: 0 0 60px rgba(6, 182, 212, 0.3), 0 0 120px rgba(6, 182, 212, 0.1), inset 0 0 40px rgba(6, 182, 212, 0.05);
+    background: radial-gradient(circle, rgba(6, 182, 212, 0.12) 0%, transparent 70%);
+}
+
+.med-fs-breath-ring.exhale {
+    transform: scale(0.8);
+    border-color: rgba(236, 72, 153, 0.5);
+    box-shadow: 0 0 40px rgba(236, 72, 153, 0.2), 0 0 80px rgba(236, 72, 153, 0.08);
+    background: radial-gradient(circle, rgba(236, 72, 153, 0.08) 0%, transparent 70%);
+}
+
+.med-fs-breath-ring.hold2 {
+    transform: scale(0.8);
+    border-color: rgba(245, 158, 11, 0.5);
+    box-shadow: 0 0 40px rgba(245, 158, 11, 0.2), 0 0 80px rgba(245, 158, 11, 0.08);
+    background: radial-gradient(circle, rgba(245, 158, 11, 0.08) 0%, transparent 70%);
+}
+
+.med-fs-breath-text {
+    font-size: 22px;
+    font-weight: 700;
+    color: #a78bfa;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    transition: color 0.3s;
+}
+
+.med-fs-breath-timer {
+    font-size: 42px;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.9);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Phase bar */
+.med-fs-phase-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.med-fs-phase-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.med-fs-phase-dot.active {
+    background: #a78bfa;
+    box-shadow: 0 0 14px rgba(167, 139, 250, 0.6);
+    transform: scale(1.4);
+}
+
+.med-fs-phase-dot[data-phase="hold1"].active,
+.med-fs-phase-dot[data-phase="hold2"].active {
+    background: #06b6d4;
+    box-shadow: 0 0 14px rgba(6, 182, 212, 0.6);
+}
+
+.med-fs-phase-dot[data-phase="exhale"].active {
+    background: #ec4899;
+    box-shadow: 0 0 14px rgba(236, 72, 153, 0.6);
+}
+
+.med-fs-phase-line {
+    width: 32px;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+}
+
+.med-fs-cycle {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.med-fs-cycle span {
+    font-weight: 700;
+    color: #a78bfa;
+    font-size: 18px;
+}
+
+/* Bottom controls */
+.med-fs-controls {
+    position: absolute;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    z-index: 2;
+}
+
+.med-fs-btn {
+    width: 52px;
+    height: 52px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 16px;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(8px);
+}
+
+.med-fs-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    border-color: rgba(167, 139, 250, 0.4);
+    transform: scale(1.1);
+}
+
+.med-fs-btn-stop:hover {
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #ef4444;
+}
+
+.med-fs-btn.active {
+    background: rgba(167, 139, 250, 0.15);
+    border-color: #a78bfa;
+    color: #a78bfa;
+}
+
+.med-fs-btn.paused {
+    background: rgba(245, 158, 11, 0.15);
+    border-color: rgba(245, 158, 11, 0.4);
+    color: #f59e0b;
+}
+
+/* Completion overlay */
+.med-complete-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.5s ease;
+}
+
+.med-complete-card {
+    background: var(--bg-card);
+    border: 1px solid rgba(167, 139, 250, 0.3);
+    border-radius: 20px;
+    padding: 40px;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.med-complete-icon {
+    font-size: 56px;
+    margin-bottom: 16px;
+}
+
+.med-complete-card h3 {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.med-complete-card p {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+
+.med-complete-stats {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin: 20px 0;
+}
+
+.med-complete-stat {
+    text-align: center;
+}
+
+.med-complete-stat-value {
+    font-size: 24px;
+    font-weight: 800;
+    color: #a78bfa;
+    display: block;
+}
+
+.med-complete-stat-label {
+    font-size: 11px;
+    color: var(--text-dim);
+}
+
+.med-complete-btn {
+    padding: 12px 32px;
+    background: linear-gradient(135deg, #a78bfa, #7c3aed);
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 8px;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .meditate-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .meditate-settings-panel {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 16px;
+    }
+}
+
+@media (max-width: 768px) {
+    .meditate-settings-panel {
+        grid-template-columns: 1fr;
+    }
+
+    .meditate-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .med-breath-outer {
+        width: 180px;
+        height: 180px;
+    }
+
+    .med-breath-ring {
+        width: 150px;
+        height: 150px;
+    }
+}
+
 /* ── SELECTION STYLE ──────────────────────────────── */
 ::selection {
     background: rgba(99, 102, 241, 0.3);

@@ -39,6 +39,14 @@
                 <i class="fa-solid fa-chart-line"></i>
                 <span>Thống kê</span>
             </a>
+            <a href="#" class="nav-item" data-page="report">
+                <i class="fa-solid fa-chart-column"></i>
+                <span>Báo cáo tuần</span>
+            </a>
+            <a href="#" class="nav-item" data-page="meditate">
+                <i class="fa-solid fa-spa"></i>
+                <span>Thiền định</span>
+            </a>
             <a href="#" class="nav-item" data-page="focus">
                 <i class="fa-solid fa-crosshairs"></i>
                 <span>Tập trung</span>
@@ -297,6 +305,120 @@
             </div>
         </section>
 
+        <!-- ====== PAGE: WEEKLY REPORT ====== -->
+        <section class="page" id="page-report">
+            <div class="report-page">
+                <!-- Report Header -->
+                <div class="report-header">
+                    <div class="report-header-left">
+                        <h2 id="reportTitle">📊 Báo cáo tuần</h2>
+                        <p class="report-subtitle" id="reportSubtitle">Tuần này</p>
+                    </div>
+                    <div class="report-header-right">
+                        <div class="report-nav">
+                            <button class="report-nav-btn" id="reportPrev"><i
+                                    class="fa-solid fa-chevron-left"></i></button>
+                            <button class="report-nav-today" id="reportToday">Tuần này</button>
+                            <button class="report-nav-btn" id="reportNext"><i
+                                    class="fa-solid fa-chevron-right"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Overview Cards -->
+                <div class="report-overview-grid" id="reportOverviewGrid">
+                    <!-- JS render 4 stat cards -->
+                </div>
+
+                <!-- Main Content Grid -->
+                <div class="report-main-grid">
+                    <!-- Left: Daily Breakdown Chart -->
+                    <div class="panel-card report-chart-card">
+                        <div class="panel-header-inline">
+                            <h3><i class="fa-solid fa-chart-bar"
+                                    style="color: var(--accent); margin-right: 8px;"></i>Tiến độ theo ngày</h3>
+                        </div>
+                        <div class="chart-wrap" style="height: 280px;">
+                            <canvas id="reportDailyChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Right: Week vs Week Comparison -->
+                    <div class="panel-card report-compare-card">
+                        <div class="panel-header-inline">
+                            <h3><i class="fa-solid fa-arrow-trend-up" style="color: #10b981; margin-right: 8px;"></i>So
+                                sánh với tuần trước</h3>
+                        </div>
+                        <div class="report-compare-content" id="reportCompareContent">
+                            <!-- JS render -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Habit Performance Table -->
+                <div class="panel-card report-performance-card">
+                    <div class="panel-header-inline">
+                        <h3><i class="fa-solid fa-ranking-star" style="color: #f59e0b; margin-right: 8px;"></i>Hiệu suất
+                            từng thói quen</h3>
+                        <span class="report-performance-badge" id="reportPerfBadge">0 thói quen</span>
+                    </div>
+                    <div class="report-performance-table" id="reportPerformanceTable">
+                        <!-- JS render -->
+                    </div>
+                </div>
+
+                <!-- Insights & Tips -->
+                <div class="report-insights-grid">
+                    <!-- Best Day -->
+                    <div class="panel-card report-insight-card report-best-day">
+                        <div class="report-insight-icon">🏆</div>
+                        <div class="report-insight-info">
+                            <span class="report-insight-label">Ngày tốt nhất</span>
+                            <span class="report-insight-value" id="reportBestDay">—</span>
+                            <span class="report-insight-detail" id="reportBestDayDetail"></span>
+                        </div>
+                    </div>
+                    <!-- Worst Day -->
+                    <div class="panel-card report-insight-card report-worst-day">
+                        <div class="report-insight-icon">📉</div>
+                        <div class="report-insight-info">
+                            <span class="report-insight-label">Ngày cần cải thiện</span>
+                            <span class="report-insight-value" id="reportWorstDay">—</span>
+                            <span class="report-insight-detail" id="reportWorstDayDetail"></span>
+                        </div>
+                    </div>
+                    <!-- Most Skipped Habit -->
+                    <div class="panel-card report-insight-card report-most-skipped">
+                        <div class="report-insight-icon">⚠️</div>
+                        <div class="report-insight-info">
+                            <span class="report-insight-label">Hay bỏ nhất</span>
+                            <span class="report-insight-value" id="reportMostSkipped">—</span>
+                            <span class="report-insight-detail" id="reportMostSkippedDetail"></span>
+                        </div>
+                    </div>
+                    <!-- AI Tip -->
+                    <div class="panel-card report-insight-card report-tip">
+                        <div class="report-insight-icon">💡</div>
+                        <div class="report-insight-info">
+                            <span class="report-insight-label">Gợi ý tuần tới</span>
+                            <span class="report-insight-value" id="reportTip">—</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mood Summary -->
+                <div class="panel-card report-mood-card">
+                    <div class="panel-header-inline">
+                        <h3><i class="fa-solid fa-face-smile" style="color: #ec4899; margin-right: 8px;"></i>Tâm trạng
+                            trong tuần</h3>
+                    </div>
+                    <div class="report-mood-content" id="reportMoodContent">
+                        <!-- JS render -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- ====== PAGE: HABITS ====== -->
         <section class="page" id="page-habits">
             <div class="habits-page">
@@ -495,6 +617,241 @@
                         <li>Chọn <em>"Execute as: Me"</em> và <em>"Who has access: Anyone"</em></li>
                         <li>Sao chép URL và dán vào ô API URL ở trên</li>
                     </ol>
+                </div>
+            </div>
+        </section>
+
+        <!-- ====== FULLSCREEN MEDITATION OVERLAY ====== -->
+        <div class="med-fullscreen" id="medFullscreen">
+            <div class="med-fs-bg">
+                <div class="med-fs-particle" style="--fsx:15%;--fsy:20%;--fsd:0s;--fssize:3px"></div>
+                <div class="med-fs-particle" style="--fsx:80%;--fsy:15%;--fsd:2s;--fssize:4px"></div>
+                <div class="med-fs-particle" style="--fsx:45%;--fsy:75%;--fsd:4s;--fssize:2px"></div>
+                <div class="med-fs-particle" style="--fsx:70%;--fsy:60%;--fsd:6s;--fssize:5px"></div>
+                <div class="med-fs-particle" style="--fsx:25%;--fsy:85%;--fsd:1s;--fssize:3px"></div>
+                <div class="med-fs-particle" style="--fsx:90%;--fsy:40%;--fsd:3s;--fssize:2px"></div>
+                <div class="med-fs-particle" style="--fsx:10%;--fsy:55%;--fsd:5s;--fssize:4px"></div>
+                <div class="med-fs-particle" style="--fsx:60%;--fsy:90%;--fsd:7s;--fssize:3px"></div>
+            </div>
+
+            <!-- Top bar: technique name + exit button -->
+            <div class="med-fs-topbar">
+                <span class="med-fs-technique" id="medFsTechnique">🌙 4-7-8 Relaxing</span>
+                <button class="med-fs-exit" id="medFsExit" title="Thoát fullscreen">
+                    <i class="fa-solid fa-compress"></i>
+                </button>
+            </div>
+
+            <!-- Center: Breathing Circle -->
+            <div class="med-fs-center">
+                <p class="med-fs-instruction" id="medFsInstruction">Chuẩn bị...</p>
+
+                <div class="med-fs-breath-wrap">
+                    <div class="med-fs-breath-ring" id="medFsRing">
+                        <span class="med-fs-breath-text" id="medFsText">Sẵn sàng</span>
+                        <span class="med-fs-breath-timer" id="medFsTimer">5:00</span>
+                    </div>
+                </div>
+
+                <!-- Phase dots -->
+                <div class="med-fs-phase-bar" id="medFsPhaseBar">
+                    <div class="med-fs-phase-dot active" data-phase="inhale"></div>
+                    <div class="med-fs-phase-line"></div>
+                    <div class="med-fs-phase-dot" data-phase="hold1"></div>
+                    <div class="med-fs-phase-line"></div>
+                    <div class="med-fs-phase-dot" data-phase="exhale"></div>
+                    <div class="med-fs-phase-line"></div>
+                    <div class="med-fs-phase-dot" data-phase="hold2"></div>
+                </div>
+
+                <div class="med-fs-cycle">
+                    <span id="medFsCycleCount">0</span> chu kỳ thở
+                </div>
+            </div>
+
+            <!-- Bottom controls -->
+            <div class="med-fs-controls">
+                <button class="med-fs-btn" id="medFsBtnPause" title="Tạm dừng">
+                    <i class="fa-solid fa-pause"></i>
+                </button>
+                <button class="med-fs-btn med-fs-btn-stop" id="medFsBtnStop" title="Dừng">
+                    <i class="fa-solid fa-stop"></i>
+                </button>
+                <button class="med-fs-btn" id="medFsBtnSound" title="Bật/Tắt âm thanh">
+                    <i class="fa-solid fa-volume-high"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- ====== PAGE: MEDITATION TIMER ====== -->
+        <section class="page" id="page-meditate">
+            <div class="meditate-page">
+                <!-- Header -->
+                <div class="meditate-header">
+                    <div class="meditate-header-left">
+                        <h2>🧘 Thiền định</h2>
+                        <p class="meditate-subtitle">Hít thở sâu, tĩnh tâm, tập trung năng lượng</p>
+                    </div>
+                    <div class="meditate-session-stats">
+                        <div class="meditate-stat"><i class="fa-solid fa-clock"></i> <span id="medTotalTime">0
+                                phút</span></div>
+                        <div class="meditate-stat"><i class="fa-solid fa-fire"></i> <span id="medTotalSessions">0
+                                phiên</span></div>
+                    </div>
+                </div>
+
+                <div class="meditate-layout">
+                    <!-- LEFT: Settings Panel -->
+                    <div class="meditate-settings-panel">
+                        <!-- Technique Selector -->
+                        <div class="med-section">
+                            <h4 class="med-section-title">KỸ THUẬT THỞ</h4>
+                            <div class="med-technique-list">
+                                <button class="med-tech-btn active" data-technique="478" id="medTech478">
+                                    <div class="med-tech-icon">🌙</div>
+                                    <div class="med-tech-info">
+                                        <span class="med-tech-name">4-7-8 Relaxing</span>
+                                        <span class="med-tech-desc">Hít 4s · Giữ 7s · Thở 8s</span>
+                                    </div>
+                                </button>
+                                <button class="med-tech-btn" data-technique="box" id="medTechBox">
+                                    <div class="med-tech-icon">🔲</div>
+                                    <div class="med-tech-info">
+                                        <span class="med-tech-name">Box Breathing</span>
+                                        <span class="med-tech-desc">Hít 4s · Giữ 4s · Thở 4s · Giữ 4s</span>
+                                    </div>
+                                </button>
+                                <button class="med-tech-btn" data-technique="calm" id="medTechCalm">
+                                    <div class="med-tech-icon">🍃</div>
+                                    <div class="med-tech-info">
+                                        <span class="med-tech-name">Calm Breathing</span>
+                                        <span class="med-tech-desc">Hít 5s · Thở 5s</span>
+                                    </div>
+                                </button>
+                                <button class="med-tech-btn" data-technique="energize" id="medTechEnergize">
+                                    <div class="med-tech-icon">⚡</div>
+                                    <div class="med-tech-info">
+                                        <span class="med-tech-name">Energizing</span>
+                                        <span class="med-tech-desc">Hít 3s · Thở 3s (nhanh)</span>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Duration Selector -->
+                        <div class="med-section">
+                            <h4 class="med-section-title">THỜI LƯỢNG</h4>
+                            <div class="med-duration-grid">
+                                <button class="med-dur-btn" data-minutes="3">3 phút</button>
+                                <button class="med-dur-btn active" data-minutes="5">5 phút</button>
+                                <button class="med-dur-btn" data-minutes="10">10 phút</button>
+                                <button class="med-dur-btn" data-minutes="15">15 phút</button>
+                                <button class="med-dur-btn" data-minutes="20">20 phút</button>
+                                <button class="med-dur-btn" data-minutes="30">30 phút</button>
+                            </div>
+                        </div>
+
+                        <!-- Ambient Quick Access -->
+                        <div class="med-section">
+                            <h4 class="med-section-title">ÂM THANH NỀN</h4>
+                            <div class="med-ambient-grid">
+                                <button class="med-amb-btn" data-sound="rain" title="Mưa">🌧️</button>
+                                <button class="med-amb-btn" data-sound="forest" title="Rừng">🌿</button>
+                                <button class="med-amb-btn" data-sound="ocean" title="Biển">🌊</button>
+                                <button class="med-amb-btn" data-sound="wind" title="Gió">💨</button>
+                                <button class="med-amb-btn" data-sound="fire" title="Lửa">🔥</button>
+                                <button class="med-amb-btn" data-sound="whitenoise" title="White Noise">🔊</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CENTER: Breathing Animation -->
+                    <div class="meditate-center">
+                        <div class="med-breath-card">
+                            <!-- Instruction -->
+                            <p class="med-instruction" id="medInstruction">Chọn kỹ thuật thở và nhấn BẮT ĐẦU</p>
+
+                            <!-- Breathing Circle -->
+                            <div class="med-breath-wrap">
+                                <div class="med-breath-outer" id="medBreathOuter">
+                                    <div class="med-breath-ring" id="medBreathRing">
+                                        <div class="med-breath-inner" id="medBreathInner">
+                                            <span class="med-breath-text" id="medBreathText">Sẵn sàng</span>
+                                            <span class="med-breath-timer" id="medBreathTimer">5:00</span>
+                                        </div>
+                                    </div>
+                                    <!-- Floating particles -->
+                                    <div class="med-particle" style="--delay:0s;--x:40px;--y:-60px"></div>
+                                    <div class="med-particle" style="--delay:1.5s;--x:-50px;--y:40px"></div>
+                                    <div class="med-particle" style="--delay:3s;--x:60px;--y:50px"></div>
+                                    <div class="med-particle" style="--delay:4.5s;--x:-30px;--y:-50px"></div>
+                                    <div class="med-particle" style="--delay:6s;--x:45px;--y:30px"></div>
+                                </div>
+                            </div>
+
+                            <!-- Phase indicator -->
+                            <div class="med-phase-bar" id="medPhaseBar">
+                                <div class="med-phase-dot active" data-phase="inhale"></div>
+                                <div class="med-phase-line"></div>
+                                <div class="med-phase-dot" data-phase="hold1"></div>
+                                <div class="med-phase-line"></div>
+                                <div class="med-phase-dot" data-phase="exhale"></div>
+                                <div class="med-phase-line"></div>
+                                <div class="med-phase-dot" data-phase="hold2"></div>
+                            </div>
+                            <div class="med-phase-labels">
+                                <span>Hít vào</span><span>Giữ</span><span>Thở ra</span><span>Giữ</span>
+                            </div>
+
+                            <!-- Controls -->
+                            <div class="med-controls">
+                                <button class="med-btn-start" id="medBtnStart">
+                                    <i class="fa-solid fa-play"></i> BẮT ĐẦU
+                                </button>
+                                <button class="med-btn-reset" id="medBtnReset" style="display:none;">
+                                    <i class="fa-solid fa-stop"></i> DỪNG
+                                </button>
+                                <button class="med-btn-sound active" id="medBtnSound" title="Bật/Tắt âm thanh">
+                                    <i class="fa-solid fa-volume-high"></i>
+                                </button>
+                            </div>
+
+                            <!-- Cycle counter -->
+                            <div class="med-cycle-counter">
+                                <span id="medCycleCount">0</span> chu kỳ thở
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT: Info Panel -->
+                    <div class="meditate-info-panel">
+                        <!-- Technique Info -->
+                        <div class="med-info-card">
+                            <h4><i class="fa-solid fa-circle-info" style="color: var(--accent);"></i> Về kỹ thuật này
+                            </h4>
+                            <p id="medTechDescription">Kỹ thuật thở 4-7-8 được phát triển bởi Dr. Andrew Weil, giúp giảm
+                                stress, cải thiện giấc ngủ và tăng cường sự tập trung. Hít vào 4 giây, giữ hơi 7 giây,
+                                và thở ra chậm trong 8 giây.</p>
+                        </div>
+
+                        <!-- Benefits -->
+                        <div class="med-info-card">
+                            <h4><i class="fa-solid fa-heart" style="color: #ec4899;"></i> Lợi ích</h4>
+                            <ul class="med-benefits-list" id="medBenefitsList">
+                                <li>Giảm stress và lo âu</li>
+                                <li>Cải thiện giấc ngủ</li>
+                                <li>Tăng tập trung</li>
+                                <li>Ổn định nhịp tim</li>
+                            </ul>
+                        </div>
+
+                        <!-- Pro Tips -->
+                        <div class="med-info-card med-tip-card">
+                            <div class="med-tip-badge"><i class="fa-solid fa-lightbulb"></i> Mẹo</div>
+                            <p id="medProTip">Thở bằng bụng (hô hấp cơ hoành) để đạt hiệu quả tốt nhất. Đặt một tay lên
+                                bụng và cảm nhận bụng phồng lên khi hít vào.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
