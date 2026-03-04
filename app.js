@@ -2544,6 +2544,7 @@ const FocusTimer = (() => {
     let spinAngle = 0;
 
     // ── DATA (localStorage) ──
+    let editingRewardId = null; // Track which reward is being edited
     let rewardPool = JSON.parse(localStorage.getItem('habitflow_rewards') || 'null') || [
         { id: 'r1', name: '15p chơi game', icon: '🎮', rarity: 'common' },
         { id: 'r2', name: 'Ăn vặt ngon', icon: '🍫', rarity: 'rare' },
@@ -3042,16 +3043,22 @@ const FocusTimer = (() => {
 
         container.innerHTML = rewardPool.map(r => {
             const cfg = RARITY_CONFIG[r.rarity];
+            const isEditing = editingRewardId === r.id;
             return `
-                <div class="reward-pool-item" data-id="${r.id}">
+                <div class="reward-pool-item ${isEditing ? 'editing' : ''}" data-id="${r.id}">
                     <div class="reward-item-icon ${r.rarity}">${r.icon}</div>
                     <div class="reward-item-info">
                         <div class="reward-item-name">${r.name}</div>
                         <span class="reward-item-rarity ${r.rarity}">${cfg.label}</span>
                     </div>
-                    <button class="reward-delete-btn" onclick="FocusTimer.removeReward('${r.id}')">
-                        <i class="fa-solid fa-trash"></i>
-                    </button>
+                    <div class="reward-action-btns">
+                        <button class="reward-edit-action-btn" onclick="FocusTimer.editReward('${r.id}')" title="Chỉnh sửa">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                        <button class="reward-delete-btn" onclick="FocusTimer.removeReward('${r.id}')" title="Xóa">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
                 </div>
             `;
         }).join('');
@@ -3067,12 +3074,27 @@ const FocusTimer = (() => {
             return;
         }
 
-        rewardPool.push({
-            id: 'r_' + Date.now(),
-            name,
-            icon,
-            rarity,
-        });
+        if (editingRewardId) {
+            // Update existing reward
+            const idx = rewardPool.findIndex(r => r.id === editingRewardId);
+            if (idx !== -1) {
+                rewardPool[idx].name = name;
+                rewardPool[idx].icon = icon;
+                rewardPool[idx].rarity = rarity;
+            }
+            editingRewardId = null;
+            updateAddRewardButton(false);
+            showToast('✅ Đã cập nhật phần thưởng!', 'success');
+        } else {
+            // Add new reward
+            rewardPool.push({
+                id: 'r_' + Date.now(),
+                name,
+                icon,
+                rarity,
+            });
+            showToast('✅ Đã thêm phần thưởng!', 'success');
+        }
 
         saveRewards();
         renderRewardPoolList();
@@ -3083,8 +3105,53 @@ const FocusTimer = (() => {
         document.getElementById('rewardNameInput').value = '';
         document.getElementById('rewardIconInput').value = '';
         document.getElementById('rewardRarityInput').value = 'common';
+    }
 
-        showToast('✅ Đã thêm phần thưởng!', 'success');
+    function editReward(id) {
+        const reward = rewardPool.find(r => r.id === id);
+        if (!reward) return;
+
+        editingRewardId = id;
+
+        // Fill form with reward data
+        document.getElementById('rewardNameInput').value = reward.name;
+        document.getElementById('rewardIconInput').value = reward.icon;
+        document.getElementById('rewardRarityInput').value = reward.rarity;
+
+        // Focus the name input
+        document.getElementById('rewardNameInput').focus();
+
+        // Update button text
+        updateAddRewardButton(true);
+
+        // Highlight the editing item
+        renderRewardPoolList();
+    }
+
+    function cancelEditReward() {
+        editingRewardId = null;
+        document.getElementById('rewardNameInput').value = '';
+        document.getElementById('rewardIconInput').value = '';
+        document.getElementById('rewardRarityInput').value = 'common';
+        updateAddRewardButton(false);
+        renderRewardPoolList();
+    }
+
+    function updateAddRewardButton(isEditing) {
+        const btn = document.getElementById('addRewardBtn');
+        const cancelBtn = document.getElementById('cancelEditRewardBtn');
+        if (btn) {
+            if (isEditing) {
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Cập nhật';
+                btn.classList.add('editing-mode');
+            } else {
+                btn.innerHTML = '<i class="fa-solid fa-plus"></i> Thêm';
+                btn.classList.remove('editing-mode');
+            }
+        }
+        if (cancelBtn) {
+            cancelBtn.style.display = isEditing ? 'inline-flex' : 'none';
+        }
     }
 
     function removeReward(id) {
@@ -3440,6 +3507,12 @@ const FocusTimer = (() => {
         init,
         removeReward: (id) => {
             removeReward(id);
+        },
+        editReward: (id) => {
+            editReward(id);
+        },
+        cancelEditReward: () => {
+            cancelEditReward();
         },
     };
 })();
@@ -4351,8 +4424,8 @@ const DailyFocusTracker = (() => {
             }
 
             const label = `${weekStart.getDate()}`;
-            const leftPct = (weekIdx / totalWeeks) * 100;
-            weekLabelsHtml += `<span class="contrib-month-label" style="left:${leftPct}%">${label}</span>`;
+            const cellSize = 15; // 11px cell + 4px gap
+            weekLabelsHtml += `<span class="contrib-month-label" style="left:${weekIdx * cellSize}px">${label}</span>`;
 
             weeksHtml += `<div class="contrib-week">${weekHtml}</div>`;
             weekIdx++;
