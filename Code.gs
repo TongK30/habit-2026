@@ -228,23 +228,49 @@ function setupSheets() {
  */
 function normalizeDateValue(val) {
   if (!val) return '';
+  
   // Nếu là Date object (Google Sheets auto-convert)
-  if (val instanceof Date) {
+  if (val instanceof Date && !isNaN(val.getTime())) {
     return formatDate(val);
   }
-  var str = String(val);
+  
+  var str = String(val).trim();
+  if (!str) return '';
+  
   // Đã đúng format YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  
   // ISO string: '2026-03-02T00:00:00.000Z'
-  if (str.indexOf('T') > -1) return str.split('T')[0];
-  // Format khác (e.g. 'Mon Mar 02 2026...') → parse lại
+  var isoMatch = str.match(/^(\d{4}-\d{2}-\d{2})T/);
+  if (isoMatch) return isoMatch[1];
+  
+  // Regex extract: tìm pattern YYYY-MM-DD ở bất kỳ đâu trong string
+  var ymdMatch = str.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (ymdMatch) return ymdMatch[0];
+  
+  // Format locale: "Mon Mar 02 2026..." hoặc "Mar 02, 2026" (có thể bị cắt)
+  var months = {Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',
+                Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
+  var localeMatch = str.match(/(\w{3})\s+(\d{1,2})[\s,]+(\d{4})/);
+  if (localeMatch && months[localeMatch[1]]) {
+    return localeMatch[3] + '-' + months[localeMatch[1]] + '-' + String(localeMatch[2]).padStart(2, '0');
+  }
+  
+  // Thử tách từ đầu: "Fri Feb 27 2026 00:00:00 GMT..."
+  var fullLocaleMatch = str.match(/\w+\s+(\w{3})\s+(\d{1,2})\s+(\d{4})/);
+  if (fullLocaleMatch && months[fullLocaleMatch[1]]) {
+    return fullLocaleMatch[3] + '-' + months[fullLocaleMatch[1]] + '-' + String(fullLocaleMatch[2]).padStart(2, '0');
+  }
+  
+  // Last resort: parse bằng Date constructor
   try {
     var d = new Date(str);
     if (!isNaN(d.getTime())) {
       return formatDate(d);
     }
   } catch(e) { }
-  return str;
+  
+  return '';
 }
 function getHabits() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -437,7 +463,11 @@ function toggleCompletion(habitId, date) {
     }
   }
   
-  sheet.appendRow([habitId, date, new Date().toISOString()]);
+  // Ghi date dưới dạng plain text (ngăn Google Sheets auto-convert thành Date object)
+  var newRow = sheet.getLastRow() + 1;
+  sheet.getRange(newRow, 1).setValue(habitId);
+  sheet.getRange(newRow, 2).setValue(date).setNumberFormat('@'); // Force plain text
+  sheet.getRange(newRow, 3).setValue(new Date().toISOString());
   return { success: true, completed: true, message: 'Đã đánh dấu hoàn thành' };
 }
 

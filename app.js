@@ -14,6 +14,19 @@ const DEFAULT_SHEET_ID = '1K3_B5HTbZNhUlBYUG8FBPWB56Zqlv2ntuW68-EEmw5Q';
 let API_URL = localStorage.getItem('habitflow_api_url') || DEFAULT_API_URL || '';
 let displayName = localStorage.getItem('habitflow_name') || 'Người dùng';
 
+// 🔄 Auto-update: nếu DEFAULT_API_URL thay đổi (deploy mới) → cập nhật localStorage
+// Giải quyết: điện thoại vẫn giữ URL cũ trong localStorage sau khi deploy lại GAS
+if (DEFAULT_API_URL && API_URL !== DEFAULT_API_URL) {
+    const savedDefault = localStorage.getItem('habitflow_last_default_url');
+    if (savedDefault !== DEFAULT_API_URL) {
+        // DEFAULT_API_URL đã thay đổi → cập nhật
+        API_URL = DEFAULT_API_URL;
+        localStorage.setItem('habitflow_api_url', DEFAULT_API_URL);
+        localStorage.setItem('habitflow_last_default_url', DEFAULT_API_URL);
+        console.log('🔄 Auto-updated API URL to new deployment:', DEFAULT_API_URL);
+    }
+}
+
 // 📡 SPREADSHEET ID - dùng để auto-discovery API URL
 let SHEET_ID = localStorage.getItem('habitflow_sheet_id') || DEFAULT_SHEET_ID || '';
 
