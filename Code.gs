@@ -15,6 +15,7 @@ const SHEET_JOURNAL = 'Journal';
 const SHEET_FOCUS_HISTORY = 'FocusHistory';
 const SHEET_FOCUS_XP = 'FocusXP';
 const SHEET_PLAYLIST = 'Playlist';
+const SHEET_PET_DATA = 'PetData';
 
 // ============================================================
 // CORS Headers helper
@@ -58,6 +59,9 @@ function doGet(e) {
       case 'getPlaylist':
         return responseJSON(getPlaylist());
       
+      case 'getPetData':
+        return responseJSON(getPetData());
+      
       case 'getAll':
       default:
         return responseJSON(getAllData());
@@ -85,6 +89,9 @@ function doPost(e) {
       case 'toggleCompletion':
         return responseJSON(toggleCompletion(body.habitId, body.date));
       
+      case 'setCompletion':
+        return responseJSON(setCompletion(body.habitId, body.date, body.completed));
+      
       case 'updateHabit':
         return responseJSON(updateHabit(body.habitId, body.name, body.icon, body.color, body.active));
       
@@ -108,6 +115,9 @@ function doPost(e) {
       
       case 'deletePlaylistTrack':
         return responseJSON(deletePlaylistTrack(body.trackId));
+      
+      case 'savePetData':
+        return responseJSON(savePetData(body.petState));
       
       default:
         return responseJSON({ success: false, error: 'Action không hợp lệ' });
@@ -212,6 +222,17 @@ function setupSheets() {
     ]);
     playlistSheet.getRange(1, 1, 1, 5).setFontWeight('bold');
     playlistSheet.setFrozenRows(1);
+  }
+
+  // Tạo sheet PetData
+  let petDataSheet = ss.getSheetByName(SHEET_PET_DATA);
+  if (!petDataSheet) {
+    petDataSheet = ss.insertSheet(SHEET_PET_DATA);
+    petDataSheet.getRange(1, 1, 1, 2).setValues([
+      ['Key', 'PetState']
+    ]);
+    petDataSheet.getRange(1, 1, 1, 2).setFontWeight('bold');
+    petDataSheet.setFrozenRows(1);
   }
 
   return { success: true, message: 'Setup hoàn tất! Sheets đã được tạo.' };
@@ -387,6 +408,7 @@ function getAllData() {
     focusHistory: focusData.focusHistory || [],
     focusXP: focusData.focusXP || null,
     playlist: getPlaylist().playlist || [],
+    petData: getPetData().petState || null,
     spreadsheetId: SPREADSHEET_ID
   };
 }
@@ -453,11 +475,15 @@ function toggleCompletion(habitId, date) {
   const sheet = ss.getSheetByName(SHEET_COMPLETIONS);
   const data = sheet.getDataRange().getValues();
   
+  // Normalize input parameters
+  const inputHabitId = String(habitId).trim();
+  const inputDate = normalizeDateValue(date); // Ensure YYYY-MM-DD format
+  
   for (let i = 1; i < data.length; i++) {
-    const rowHabitId = String(data[i][0]);
-    let rowDate = normalizeDateValue(data[i][1]);
+    const rowHabitId = String(data[i][0]).trim();
+    const rowDate = normalizeDateValue(data[i][1]);
     
-    if (rowHabitId === habitId && rowDate === date) {
+    if (rowHabitId === inputHabitId && rowDate === inputDate) {
       sheet.deleteRow(i + 1);
       return { success: true, completed: false, message: 'Đã bỏ đánh dấu' };
     }
@@ -465,10 +491,54 @@ function toggleCompletion(habitId, date) {
   
   // Ghi date dưới dạng plain text (ngăn Google Sheets auto-convert thành Date object)
   var newRow = sheet.getLastRow() + 1;
-  sheet.getRange(newRow, 1).setValue(habitId);
-  sheet.getRange(newRow, 2).setValue(date).setNumberFormat('@'); // Force plain text
+  sheet.getRange(newRow, 1).setValue(inputHabitId);
+  sheet.getRange(newRow, 2).setValue(inputDate).setNumberFormat('@'); // Force plain text
   sheet.getRange(newRow, 3).setValue(new Date().toISOString());
   return { success: true, completed: true, message: 'Đã đánh dấu hoàn thành' };
+}
+
+/**
+ * setCompletion - Đặt trạng thái completion một cách tường minh (KHÔNG toggle).
+ * Client gửi trạng thái mong muốn (completed: true/false) → server thực hiện chính xác.
+ * Tránh bug desync giữa client và server khi toggle.
+ */
+function setCompletion(habitId, date, completed) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(SHEET_COMPLETIONS);
+  const data = sheet.getDataRange().getValues();
+  
+  const inputHabitId = String(habitId).trim();
+  const inputDate = normalizeDateValue(date);
+  
+  // Tìm row hiện tại
+  let existingRow = -1;
+  for (let i = 1; i < data.length; i++) {
+    const rowHabitId = String(data[i][0]).trim();
+    const rowDate = normalizeDateValue(data[i][1]);
+    if (rowHabitId === inputHabitId && rowDate === inputDate) {
+      existingRow = i + 1; // 1-indexed cho sheet
+      break;
+    }
+  }
+  
+  if (completed) {
+    // Muốn ĐÁNH DẤU: chỉ thêm nếu chưa có
+    if (existingRow > 0) {
+      return { success: true, completed: true, message: 'Đã có sẵn' };
+    }
+    var newRow = sheet.getLastRow() + 1;
+    sheet.getRange(newRow, 1).setValue(inputHabitId);
+    sheet.getRange(newRow, 2).setValue(inputDate).setNumberFormat('@');
+    sheet.getRange(newRow, 3).setValue(new Date().toISOString());
+    return { success: true, completed: true, message: 'Đã đánh dấu hoàn thành' };
+  } else {
+    // Muốn BỎ ĐÁNH DẤU: chỉ xóa nếu có
+    if (existingRow > 0) {
+      sheet.deleteRow(existingRow);
+      return { success: true, completed: false, message: 'Đã bỏ đánh dấu' };
+    }
+    return { success: true, completed: false, message: 'Không có gì để xóa' };
+  }
 }
 
 function updateHabit(habitId, name, icon, color, active) {
@@ -763,6 +833,56 @@ function deletePlaylistTrack(trackId) {
   }
   
   return { success: false, error: 'Track not found' };
+}
+
+// ============================================================
+// PET DATA FUNCTIONS
+// ============================================================
+function getPetData() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(SHEET_PET_DATA);
+  if (!sheet) return { success: true, petState: null };
+  
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return { success: true, petState: null };
+  
+  // Row 2: Key='petState', Value=JSON string
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === 'petState') {
+      try {
+        return { success: true, petState: JSON.parse(String(data[i][1])) };
+      } catch(e) {
+        return { success: true, petState: null };
+      }
+    }
+  }
+  return { success: true, petState: null };
+}
+
+function savePetData(petState) {
+  if (!petState) return { success: false, error: 'Pet state is required' };
+  
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(SHEET_PET_DATA);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_PET_DATA);
+    sheet.getRange(1, 1, 1, 2).setValues([['Key', 'PetState']]);
+    sheet.getRange(1, 1, 1, 2).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  
+  var jsonStr = JSON.stringify(petState);
+  var data = sheet.getDataRange().getValues();
+  
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === 'petState') {
+      sheet.getRange(i + 1, 2).setValue(jsonStr);
+      return { success: true, message: 'Pet data updated' };
+    }
+  }
+  
+  sheet.appendRow(['petState', jsonStr]);
+  return { success: true, message: 'Pet data saved' };
 }
 
 // ============================================================

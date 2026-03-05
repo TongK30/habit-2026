@@ -47,6 +47,10 @@
                 <i class="fa-solid fa-spa"></i>
                 <span>Thiền định</span>
             </a>
+            <a href="#" class="nav-item" data-page="pet">
+                <i class="fa-solid fa-paw"></i>
+                <span>Thú cưng</span>
+            </a>
             <a href="#" class="nav-item" data-page="focus">
                 <i class="fa-solid fa-crosshairs"></i>
                 <span>Tập trung</span>
@@ -617,6 +621,196 @@
                         <li>Chọn <em>"Execute as: Me"</em> và <em>"Who has access: Anyone"</em></li>
                         <li>Sao chép URL và dán vào ô API URL ở trên</li>
                     </ol>
+                </div>
+            </div>
+        </section>
+
+        <!-- ====== PAGE: VIRTUAL PET ====== -->
+        <section class="page" id="page-pet">
+            <div class="pet-page">
+                <!-- Header -->
+                <div class="pet-header">
+                    <div class="pet-header-left">
+                        <h2>🐾 Thú cưng</h2>
+                        <p class="pet-subtitle">Hoàn thành thói quen để chăm sóc bạn nhỏ!</p>
+                    </div>
+                    <div class="pet-header-right">
+                        <div class="pet-xp-badge" id="petXpBadge">
+                            <i class="fa-solid fa-bolt"></i>
+                            <span id="petAvailableXP">0</span> XP
+                        </div>
+                        <div class="pet-level-badge" id="petLevelBadge">
+                            <i class="fa-solid fa-star"></i> Level <span id="petLevel">1</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Switcher -->
+                <div class="pet-tab-switcher">
+                    <button class="pet-tab active" data-pet-tab="care" id="petTabCare">
+                        <i class="fa-solid fa-paw"></i> Thú cưng
+                    </button>
+                    <button class="pet-tab" data-pet-tab="shop" id="petTabShop">
+                        <i class="fa-solid fa-store"></i> Cửa hàng
+                    </button>
+                </div>
+
+                <div class="pet-layout">
+                    <!-- LEFT: Pet Display -->
+                    <div class="pet-display-area">
+                        <!-- Speech Bubble -->
+                        <div class="pet-speech" id="petSpeech">
+                            <span id="petMessage">Chào buổi sáng! Hôm nay mình làm gì nào? ⚡</span>
+                        </div>
+
+                        <!-- Pikachu CSS Art / Animated GIF -->
+                        <div class="pet-scene" id="petScene">
+                            <img id="realPetImg" src=""
+                                style="display: none; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 140px; height: 140px; object-fit: contain; z-index: 10;" />
+                            <div class="pikachu" id="pikachu">
+                                <!-- Ears -->
+                                <div class="pika-ear pika-ear-l"></div>
+                                <div class="pika-ear pika-ear-r"></div>
+                                <!-- Head -->
+                                <div class="pika-head">
+                                    <div class="pika-eye pika-eye-l" id="pikaEyeL">
+                                        <div class="pika-pupil"></div>
+                                    </div>
+                                    <div class="pika-eye pika-eye-r" id="pikaEyeR">
+                                        <div class="pika-pupil"></div>
+                                    </div>
+                                    <div class="pika-cheek pika-cheek-l"></div>
+                                    <div class="pika-cheek pika-cheek-r"></div>
+                                    <div class="pika-nose"></div>
+                                    <div class="pika-mouth" id="pikaMouth"></div>
+                                </div>
+                                <!-- Body -->
+                                <div class="pika-body">
+                                    <div class="pika-arm pika-arm-l"></div>
+                                    <div class="pika-arm pika-arm-r"></div>
+                                    <div class="pika-belly"></div>
+                                </div>
+                                <!-- Tail -->
+                                <div class="pika-tail"></div>
+                                <!-- Feet -->
+                                <div class="pika-foot pika-foot-l"></div>
+                                <div class="pika-foot pika-foot-r"></div>
+                                <!-- Effects -->
+                                <div class="pika-spark pika-spark-1" id="pikaSpark1"></div>
+                                <div class="pika-spark pika-spark-2" id="pikaSpark2"></div>
+                                <div class="pika-spark pika-spark-3" id="pikaSpark3"></div>
+                                <!-- Sleep Zzz -->
+                                <div class="pika-zzz" id="pikaZzz">💤</div>
+                            </div>
+                        </div>
+
+                        <!-- Pet Name -->
+                        <div class="pet-name-area">
+                            <span class="pet-name" id="petName">Pika</span>
+                            <button class="pet-rename-btn" id="petRenameBtn" title="Đổi tên">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                        </div>
+
+                        <!-- XP Bar -->
+                        <div class="pet-xp-bar">
+                            <div class="pet-xp-fill" id="petXpFill" style="width: 0%"></div>
+                            <span class="pet-xp-text" id="petXpText">0 / 100 XP</span>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT: Stats & Actions -->
+                    <div class="pet-info-area">
+                        <!-- Status Bars -->
+                        <div class="pet-stats-card">
+                            <h4><i class="fa-solid fa-heart-pulse" style="color:#ec4899"></i> Trạng thái</h4>
+                            <div class="pet-stat-row">
+                                <span class="pet-stat-label">❤️ Vui vẻ</span>
+                                <div class="pet-stat-bar">
+                                    <div class="pet-stat-fill happiness" id="petHappiness" style="width:50%"></div>
+                                </div>
+                                <span class="pet-stat-val" id="petHappinessVal">50%</span>
+                            </div>
+                            <div class="pet-stat-row">
+                                <span class="pet-stat-label">🍕 No bụng</span>
+                                <div class="pet-stat-bar">
+                                    <div class="pet-stat-fill fullness" id="petFullness" style="width:50%"></div>
+                                </div>
+                                <span class="pet-stat-val" id="petFullnessVal">50%</span>
+                            </div>
+                            <div class="pet-stat-row">
+                                <span class="pet-stat-label">⚡ Năng lượng</span>
+                                <div class="pet-stat-bar">
+                                    <div class="pet-stat-fill energy" id="petEnergy" style="width:100%"></div>
+                                </div>
+                                <span class="pet-stat-val" id="petEnergyVal">100%</span>
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="pet-actions-card">
+                            <h4><i class="fa-solid fa-gamepad" style="color:#a78bfa"></i> Hành động</h4>
+                            <div class="pet-action-grid">
+                                <button class="pet-action-btn" id="petFeedBtn" data-action="feed">
+                                    <span class="pet-action-icon">🍕</span>
+                                    <span class="pet-action-name">Cho ăn</span>
+                                    <span class="pet-action-cd" id="petFeedCd"></span>
+                                </button>
+                                <button class="pet-action-btn" id="petPlayBtn" data-action="play">
+                                    <span class="pet-action-icon">🎾</span>
+                                    <span class="pet-action-name">Chơi</span>
+                                    <span class="pet-action-cd" id="petPlayCd"></span>
+                                </button>
+                                <button class="pet-action-btn" id="petSleepBtn" data-action="sleep">
+                                    <span class="pet-action-icon">💤</span>
+                                    <span class="pet-action-name">Ngủ</span>
+                                    <span class="pet-action-cd" id="petSleepCd"></span>
+                                </button>
+                                <button class="pet-action-btn" id="petBathBtn" data-action="bath">
+                                    <span class="pet-action-icon">🛁</span>
+                                    <span class="pet-action-name">Tắm</span>
+                                    <span class="pet-action-cd" id="petBathCd"></span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Today's Habit Progress -->
+                        <div class="pet-habit-card">
+                            <h4><i class="fa-solid fa-list-check" style="color:#22c55e"></i> Thói quen hôm nay</h4>
+                            <div class="pet-habit-progress">
+                                <div class="pet-habit-ring">
+                                    <svg viewBox="0 0 36 36" class="pet-habit-svg">
+                                        <path class="pet-habit-bg"
+                                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                        <path class="pet-habit-fg" id="petHabitArc" stroke-dasharray="0, 100"
+                                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                    </svg>
+                                    <span class="pet-habit-pct" id="petHabitPct">0%</span>
+                                </div>
+                                <div class="pet-habit-detail">
+                                    <span class="pet-habit-count" id="petHabitCount">0/0 hoàn thành</span>
+                                    <span class="pet-habit-mood" id="petHabitMood">😐 Bình thường</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ====== TAB: SHOP ====== -->
+                <div class="pet-tab-content" id="petShopContent" style="display:none">
+                    <div class="shop-header">
+                        <div class="shop-balance">
+                            <i class="fa-solid fa-bolt"></i>
+                            <span>XP khả dụng: <strong id="shopAvailableXP">0</strong></span>
+                        </div>
+                        <div class="shop-sub-tabs">
+                            <button class="shop-sub-tab active" data-shop-tab="skins">🎨 Skins</button>
+                            <button class="shop-sub-tab" data-shop-tab="pets">🐾 Pets</button>
+                        </div>
+                    </div>
+                    <div class="shop-grid" id="shopGrid">
+                        <!-- JS render shop items -->
+                    </div>
                 </div>
             </div>
         </section>

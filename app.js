@@ -1,10 +1,10 @@
-// ============================================================
+﻿// ============================================================
 // HABIT TRACKER - Frontend JavaScript
 // Kết nối với Google Apps Script API
 // ============================================================
 
 // ⚙️ CONFIG
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxLR1r42Jr6Ltn981HN1EsZdxsRZhwpR2Jkv_1-Ssw0Cw1kpaHadc9sNo7SRO-vwi7B/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbyZccwYLcShpCuH1sMaYHs60rOU4pftMPyyh-r4bT8zMa9LZtaPapFMWrdXJsU4DDFh/exec';
 
 // 📡 DEFAULT_SHEET_ID: Paste Spreadsheet ID vào đây (cùng ID trong Code.gs)
 // ID này KHÔNG BAO GIỜ thay đổi → mọi thiết bị tự tìm API URL từ Google Sheets.
@@ -190,13 +190,21 @@ async function processJournalSyncQueue() {
 }
 
 function enqueuSync(habitId, date) {
-    // Nếu đã có trong queue chờ (chưa gửi) thì toggle lại (hủy)
+    // Kiểm tra xem state hiện tại CÓ completion này không
+    // Nếu state có → vừa add → cần server add
+    // Nếu state không có → vừa remove → cần server remove
+    const isNowCompleted = state.completions.some(
+        c => c.habitId === habitId && c.date === date
+    );
+
+    // Xóa bất kỳ pending nào cho cùng habitId+date (chỉ giữ lệnh cuối cùng)
     const pendingIdx = syncQueue.findIndex(q => q.habitId === habitId && q.date === date);
     if (pendingIdx >= 0) {
-        syncQueue.splice(pendingIdx, 1); // hủy bỏ – hai lần toggle = không đổi
-    } else {
-        syncQueue.push({ habitId, date });
+        syncQueue.splice(pendingIdx, 1);
     }
+
+    // Luôn push lệnh mới vào queue - đảm bảo server luôn nhận được trạng thái cuối
+    syncQueue.push({ habitId, date, wantCompleted: isNowCompleted });
     saveSyncQueue();
     processSyncQueue();
 }
@@ -207,7 +215,18 @@ async function processSyncQueue() {
     while (syncQueue.length > 0) {
         const item = syncQueue[0]; // peek, don't remove yet
         try {
-            await apiPost({ action: 'toggleCompletion', habitId: item.habitId, date: item.date });
+            // Dùng setCompletion (tường minh) thay vì toggleCompletion (dễ desync)
+            if (item.wantCompleted !== undefined) {
+                await apiPost({
+                    action: 'setCompletion',
+                    habitId: item.habitId,
+                    date: item.date,
+                    completed: item.wantCompleted
+                });
+            } else {
+                // Backward-compatible: queue items cũ chưa có wantCompleted
+                await apiPost({ action: 'toggleCompletion', habitId: item.habitId, date: item.date });
+            }
             syncQueue.shift(); // remove only after success
             saveSyncQueue();
         } catch (err) {
@@ -221,6 +240,7 @@ async function processSyncQueue() {
     // Refresh stats sau khi sync xong
     if (syncQueue.length === 0) refreshStatsBackground();
 }
+
 
 async function refreshStatsBackground() {
     if (!API_URL) return;
@@ -637,6 +657,12 @@ async function loadData() {
             if (data.playlist && typeof FocusMusic !== 'undefined') {
                 FocusMusic.mergeFromApi(data.playlist);
             }
+
+            // 🐾 Merge pet data từ API
+            if (data.petData && typeof VirtualPet !== 'undefined') {
+                VirtualPet.loadFromAPI(data.petData);
+            }
+
         }
         else {
             showToast('Lỗi tải dữ liệu: ' + (data.error || 'Không xác định'), 'error');
@@ -2386,12 +2412,13 @@ function showPage(name) {
     document.querySelectorAll('.nav-item').forEach(n => {
         n.classList.toggle('active', n.dataset.page === name);
     });
-    const titles = { dashboard: 'Dashboard', habits: 'Thói quen', stats: 'Thống kê', report: 'Báo cáo tuần', meditate: 'Thiền định', focus: 'Thời gian tập trung', settings: 'Cài đặt' };
+    const titles = { dashboard: 'Dashboard', habits: 'Thói quen', stats: 'Thống kê', report: 'Báo cáo tuần', meditate: 'Thiền định', pet: 'Thú cưng', focus: 'Thời gian tập trung', settings: 'Cài đặt' };
     document.querySelector('#pageTitle h1').textContent = titles[name] || name;
     closeSidebar();
     if (name === 'stats') { renderStats(); }
     if (name === 'report') { renderWeeklyReport(); }
     if (name === 'meditate') { MeditationTimer.updateUI(); }
+    if (name === 'pet') { VirtualPet.render(); }
 
     // Toggle floating focus menu
     const ffm = document.getElementById('focusFloatMenu');
@@ -6433,3 +6460,270 @@ const MeditationTimer = (() => {
 document.addEventListener('DOMContentLoaded', () => {
     MeditationTimer.init();
 });
+
+// ============================================================
+// 🐾 VIRTUAL PET MODULE (with Shop, Skins, Unified XP)
+// ============================================================
+const VirtualPet = (() => {
+    const STORAGE_KEY = 'habitflow_pet';
+    const XP_PER_LEVEL = 100;
+
+    // ── PET CATALOG ──
+    const SKIN_CATALOG = [
+        { id: 'classic', name: 'Classic', price: 0, emoji: '💛', desc: 'Vàng tiêu chuẩn' },
+        { id: 'shiny', name: 'Shiny', price: 200, emoji: '🧡', desc: 'Cam ánh vàng' },
+        { id: 'night', name: 'Night', price: 300, emoji: '💜', desc: 'Tím đêm' },
+        { id: 'fire', name: 'Fire', price: 500, emoji: '❤️', desc: 'Đỏ cam' },
+        { id: 'ice', name: 'Ice', price: 500, emoji: '💙', desc: 'Xanh băng' },
+        { id: 'galaxy', name: 'Galaxy', price: 1000, emoji: '🌌', desc: 'Galaxy', rare: true },
+    ];
+
+    const PET_CATALOG = [
+        { id: 'pikachu', name: 'Pikachu', price: 0, emoji: '⚡', gifId: '25' },
+        { id: 'eevee', name: 'Eevee', price: 500, emoji: '🦊', gifId: '133' },
+        { id: 'jigglypuff', name: 'Jigglypuff', price: 600, emoji: '🎤', gifId: '39' },
+        { id: 'meowth', name: 'Meowth', price: 700, emoji: '🐱', gifId: '52' },
+        { id: 'charmander', name: 'Charmander', price: 800, emoji: '🔥', gifId: '4' },
+        { id: 'bulbasaur', name: 'Bulbasaur', price: 800, emoji: '🌿', gifId: '1' },
+        { id: 'squirtle', name: 'Squirtle', price: 800, emoji: '🐢', gifId: '7' },
+        { id: 'togepi', name: 'Togepi', price: 900, emoji: '🥚', gifId: '175' },
+        { id: 'snorlax', name: 'Snorlax', price: 1000, emoji: '😴', gifId: '143' },
+        { id: 'gengar', name: 'Gengar', price: 1200, emoji: '👻', gifId: '94' },
+        { id: 'mew', name: 'Mew', price: 2000, emoji: '✨', rare: true, gifId: '151' },
+    ];
+
+    const MESSAGES = {
+        happy: ['Pika pika! Hôm nay tuyệt vời quá! ⚡', 'Yay! Bạn giỏi lắm! 🌟', 'Mình rất vui! 💛', 'Năng lượng tràn đầy! ⚡⚡', 'Bạn là người chủ tốt nhất! 🎉'],
+        normal: ['Hôm nay mình làm gì nào? ⚡', 'Đừng quên hoàn thành thói quen nhé! 📋', 'Mình đang chờ bạn cho ăn nè~ 🍕', 'Cùng cố gắng nào! 💪', 'Một ngày mới, thử thách mới! ✨'],
+        sad: ['Mình hơi buồn... bạn quên mình rồi à? 😢', 'Đói quá... cho mình ăn đi mà~ 🍕', 'Pi...ka... mình cần năng lượng... 😿', 'Lâu rồi không ai chơi với mình... 🎾'],
+        angry: ['Pika!! Bạn bỏ bê mình quá! 😠⚡', 'Mình giận lắm rồi! 💢', 'Xin hãy chăm sóc mình tốt hơn! 😤'],
+        sleeping: ['Zzz... đang ngủ ngon... 💤', 'Zzz... mơ thấy Electric Ball... 💤⚡', 'Shhh... để mình ngủ thêm chút... 😴'],
+        feed: ['Ngon quá! Nom nom nom! 🍕😋', 'Cảm ơn bạn! No rồi! 🎉', 'Yum yum! Tuyệt vời! ⚡🍕'],
+        play: ['Yay! Chơi nữa đi! 🎾⚡', 'Vui quá! Catch me! 🏃‍♂️💛', 'Woohoo! Thunderbolt! ⚡⚡⚡'],
+        bath: ['Sạch sẽ rồi! 🛁✨', 'Bong bóng! Splash! 💧🫧'],
+        sleep: ['Ngáp~ Mình ngủ một giấc nhé... 💤', 'Good night... Zzz... 😴⚡'],
+        levelUp: ['🎉 LEVEL UP! Cấp {level} rồi! ⚡⚡'],
+    };
+
+    const COOLDOWNS = { feed: 3600000, play: 1800000, sleep: 7200000, bath: 3600000 };
+    let currentShopTab = 'skins';
+    let _syncTimer = null;
+
+    function defaultPet() {
+        return { name: 'Pika', level: 1, xp: 0, happiness: 60, fullness: 60, energy: 100, lastFed: 0, lastPlayed: 0, lastSlept: 0, lastBathed: 0, lastDecay: Date.now(), created: Date.now(), spentXP: 0, ownedSkins: ['classic'], ownedPets: ['pikachu'], activeSkin: 'classic', activePet: 'pikachu' };
+    }
+
+    function load() {
+        try { const s = localStorage.getItem(STORAGE_KEY); if (s) return { ...defaultPet(), ...JSON.parse(s) }; } catch { }
+        return defaultPet();
+    }
+
+    function save(pet) { localStorage.setItem(STORAGE_KEY, JSON.stringify(pet)); scheduleSyncToServer(); }
+    function clamp(v, min = 0, max = 100) { return Math.max(min, Math.min(max, v)); }
+    function randomMsg(key) { const l = MESSAGES[key] || MESSAGES.normal; return l[Math.floor(Math.random() * l.length)]; }
+
+    // ── UNIFIED XP ──
+    function getGlobalXP() {
+        const habitXP = (state.completions || []).length * 10;
+        let focusXP = 0;
+        try { if (typeof FocusXP !== 'undefined') { focusXP = FocusXP.getState().totalXP || 0; } } catch { }
+        return habitXP + focusXP;
+    }
+
+    function getAvailableXP() { return Math.max(0, getGlobalXP() - load().spentXP); }
+
+    function getTodayHabitPct() {
+        try {
+            const today = formatDate(new Date());
+            const active = getActiveHabitsForDate(today);
+            if (active.length === 0) return { done: 0, total: 0, pct: 0 };
+            const done = active.filter(h => state.completions.some(c => { const d = (c.date || '').includes('T') ? c.date.split('T')[0] : (c.date || '').substring(0, 10); return d === today && String(c.habitId) === String(h.id); })).length;
+            return { done, total: active.length, pct: Math.round((done / active.length) * 100) };
+        } catch { return { done: 0, total: 0, pct: 0 }; }
+    }
+
+    function applyDecay(pet) {
+        const now = Date.now();
+        const hrs = (now - (pet.lastDecay || now)) / 3600000;
+        if (hrs >= 1) { const d = Math.floor(hrs); pet.happiness = clamp(pet.happiness - d * 2); pet.fullness = clamp(pet.fullness - d * 3); pet.lastDecay = now; }
+        return pet;
+    }
+
+    function getMood(pet) {
+        const avg = (pet.happiness + pet.fullness + getTodayHabitPct().pct) / 3;
+        const h = new Date().getHours();
+        if (pet.energy <= 10 || h >= 23 || h < 6) return 'sleeping';
+        if (avg >= 75) return 'happy'; if (avg >= 50) return 'normal'; if (avg >= 25) return 'sad'; return 'angry';
+    }
+
+    function getMoodLabel(m) { return ({ happy: '😺 Rất vui!', normal: '😐 Bình thường', sad: '😿 Buồn', angry: '😾 Giận dữ', sleeping: '😴 Đang ngủ' })[m] || '😐 Bình thường'; }
+
+    function canAction(pet, a) { const k = 'last' + a.charAt(0).toUpperCase() + a.slice(1); return Date.now() - (pet[k] || 0) >= COOLDOWNS[a]; }
+
+    function getCooldownText(pet, a) {
+        const k = 'last' + a.charAt(0).toUpperCase() + a.slice(1);
+        const rem = COOLDOWNS[a] - (Date.now() - (pet[k] || 0));
+        return rem <= 0 ? '' : Math.ceil(rem / 60000) + ' phút';
+    }
+
+    function doAction(action) {
+        let pet = load(); pet = applyDecay(pet);
+        if (!canAction(pet, action)) { setMessage('Chưa đến lúc! Chờ thêm chút nhé~ ⏳'); return; }
+        const lk = 'last' + action.charAt(0).toUpperCase() + action.slice(1);
+        pet[lk] = Date.now();
+        const pikaEl = document.getElementById('pikachu');
+        switch (action) {
+            case 'feed': pet.fullness = clamp(pet.fullness + 25); pet.happiness = clamp(pet.happiness + 5); pet.xp += 5; setMessage(randomMsg('feed')); if (pikaEl) { pikaEl.classList.add('eating'); setTimeout(() => pikaEl.classList.remove('eating'), 1500); } break;
+            case 'play': pet.happiness = clamp(pet.happiness + 20); pet.energy = clamp(pet.energy - 10); pet.xp += 10; setMessage(randomMsg('play')); if (pikaEl) { pikaEl.classList.add('playing'); setTimeout(() => pikaEl.classList.remove('playing'), 2000); } break;
+            case 'sleep': pet.energy = clamp(pet.energy + 30); pet.happiness = clamp(pet.happiness + 5); pet.xp += 3; setMessage(randomMsg('sleep')); break;
+            case 'bath': pet.happiness = clamp(pet.happiness + 10); pet.xp += 5; setMessage(randomMsg('bath')); break;
+        }
+        while (pet.xp >= XP_PER_LEVEL) { pet.xp -= XP_PER_LEVEL; pet.level++; setMessage(randomMsg('levelUp').replace('{level}', pet.level)); if (typeof showToast !== 'undefined') showToast(`🎉 Level ${pet.level}! ⚡`, 'success'); }
+        save(pet); render();
+    }
+
+    function setMessage(text) {
+        const el = document.getElementById('petMessage');
+        if (el) { el.textContent = text; const sp = document.getElementById('petSpeech'); if (sp) { sp.style.animation = 'none'; void sp.offsetWidth; sp.style.animation = ''; } }
+    }
+
+    // ── SHOP ──
+    function buyItem(type, id) {
+        const cat = type === 'skin' ? SKIN_CATALOG : PET_CATALOG;
+        const item = cat.find(i => i.id === id);
+        if (!item) return;
+        let pet = load();
+        const ok = type === 'skin' ? 'ownedSkins' : 'ownedPets';
+        if (pet[ok].includes(id)) { showToast('Đã sở hữu rồi!', 'error'); return; }
+        const avail = getAvailableXP();
+        if (avail < item.price) { showToast(`Không đủ XP! Cần ${item.price}, có ${avail} XP.`, 'error'); return; }
+        pet.spentXP += item.price;
+        pet[ok].push(id);
+        if (type === 'skin') pet.activeSkin = id; else pet.activePet = id;
+        save(pet); showToast(`🎉 Đã mua ${item.name}!`, 'success'); render(); renderShop(); updateXPDisplays();
+    }
+
+    function equipItem(type, id) {
+        let pet = load();
+        if (type === 'skin') { if (!pet.ownedSkins.includes(id)) return; pet.activeSkin = id; }
+        else { if (!pet.ownedPets.includes(id)) return; pet.activePet = id; }
+        save(pet); render(); renderShop(); showToast(`✅ Đã trang bị!`, 'success');
+    }
+
+    function updateXPDisplays() {
+        const a = getAvailableXP();
+        const e1 = document.getElementById('petAvailableXP');
+        const e2 = document.getElementById('shopAvailableXP');
+        if (e1) e1.textContent = a;
+        if (e2) e2.textContent = a;
+    }
+
+    function renderShop() {
+        const grid = document.getElementById('shopGrid');
+        if (!grid) return;
+        const pet = load(), avail = getAvailableXP();
+        const items = currentShopTab === 'skins' ? SKIN_CATALOG : PET_CATALOG;
+        const ok = currentShopTab === 'skins' ? 'ownedSkins' : 'ownedPets';
+        const ak = currentShopTab === 'skins' ? 'activeSkin' : 'activePet';
+        const tp = currentShopTab === 'skins' ? 'skin' : 'pet';
+
+        grid.innerHTML = items.map(item => {
+            const owned = pet[ok].includes(item.id), equip = pet[ak] === item.id, canBuy = avail >= item.price, free = item.price === 0;
+            let badge = equip ? '<span class="shop-badge shop-badge-equipped">Đang dùng</span>' : owned ? '<span class="shop-badge shop-badge-owned">Đã mua</span>' : item.rare ? '<span class="shop-badge shop-badge-rare">Hiếm</span>' : '';
+            let btn = equip ? '<button class="shop-btn shop-btn-equipped" disabled><i class="fa-solid fa-check"></i> Đang dùng</button>'
+                : owned ? `<button class="shop-btn shop-btn-equip" onclick="VirtualPet.equipItem('${tp}','${item.id}')"><i class="fa-solid fa-shirt"></i> Trang bị</button>`
+                    : free ? '<button class="shop-btn shop-btn-equipped" disabled><i class="fa-solid fa-check"></i> Miễn phí</button>'
+                        : `<button class="shop-btn shop-btn-buy" ${!canBuy ? 'disabled' : ''} onclick="VirtualPet.buyItem('${tp}','${item.id}')"><i class="fa-solid fa-cart-shopping"></i> Mua</button>`;
+            const price = free ? '<div class="shop-price free">Miễn phí</div>' : `<div class="shop-price"><i class="fa-solid fa-bolt"></i> ${item.price} XP</div>`;
+            const previewHtml = item.gifId && tp === 'pet' ? `<img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/${item.gifId}.gif" class="shop-card-gif">` : `<span class="shop-card-emoji">${item.emoji}</span>`;
+            return `<div class="shop-card ${equip ? 'equipped' : owned ? 'owned' : ''}">${badge}${previewHtml}<div class="shop-card-name">${item.name}</div>${price}${btn}</div>`;
+        }).join('');
+        updateXPDisplays();
+    }
+
+    function render() {
+        let pet = load(); pet = applyDecay(pet); save(pet);
+        const mood = getMood(pet), hd = getTodayHabitPct();
+        const nameEl = document.getElementById('petName'); if (nameEl) nameEl.textContent = pet.name;
+        const lvEl = document.getElementById('petLevel'); if (lvEl) lvEl.textContent = pet.level;
+        const xpF = document.getElementById('petXpFill'), xpT = document.getElementById('petXpText');
+        if (xpF) xpF.style.width = (pet.xp / XP_PER_LEVEL * 100) + '%';
+        if (xpT) xpT.textContent = `${pet.xp} / ${XP_PER_LEVEL} XP`;
+        const bars = { happiness: ['petHappiness', 'petHappinessVal'], fullness: ['petFullness', 'petFullnessVal'], energy: ['petEnergy', 'petEnergyVal'] };
+        for (const [k, [bId, vId]] of Object.entries(bars)) { const b = document.getElementById(bId), v = document.getElementById(vId), val = Math.round(pet[k]); if (b) b.style.width = val + '%'; if (v) v.textContent = val + '%'; }
+        // Handle Pet Rendering (CSS Pikachu vs GIF Image)
+        const pikaEl = document.getElementById('pikachu');
+        const imgEl = document.getElementById('realPetImg');
+
+        if (pet.activePet === 'pikachu') {
+            if (pikaEl) {
+                pikaEl.style.display = 'block';
+                pikaEl.className = 'pikachu';
+                if (mood !== 'normal') pikaEl.classList.add(mood);
+                if (pet.activeSkin && pet.activeSkin !== 'classic') pikaEl.classList.add('skin-' + pet.activeSkin);
+            }
+            if (imgEl) imgEl.style.display = 'none';
+        } else {
+            if (pikaEl) pikaEl.style.display = 'none';
+            if (imgEl) {
+                const activePetData = PET_CATALOG.find(p => p.id === pet.activePet);
+                if (activePetData && activePetData.gifId) {
+                    imgEl.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/${activePetData.gifId}.gif`;
+                    imgEl.style.display = 'block';
+                }
+            }
+        }
+        const msgEl = document.getElementById('petMessage');
+        if (msgEl && !pikaEl?.classList.contains('eating') && !pikaEl?.classList.contains('playing')) msgEl.textContent = randomMsg(mood);
+        ['feed', 'play', 'sleep', 'bath'].forEach(a => { const cd = document.getElementById(`pet${a.charAt(0).toUpperCase() + a.slice(1)}Cd`), bt = document.getElementById(`pet${a.charAt(0).toUpperCase() + a.slice(1)}Btn`), t = getCooldownText(pet, a); if (cd) cd.textContent = t; if (bt) bt.classList.toggle('disabled', !!t); });
+        const arc = document.getElementById('petHabitArc'), pct = document.getElementById('petHabitPct'), cnt = document.getElementById('petHabitCount'), mEl = document.getElementById('petHabitMood');
+        if (arc) arc.setAttribute('stroke-dasharray', `${hd.pct}, 100`); if (pct) pct.textContent = hd.pct + '%'; if (cnt) cnt.textContent = `${hd.done}/${hd.total} hoàn thành`; if (mEl) mEl.textContent = getMoodLabel(mood);
+        updateXPDisplays();
+    }
+
+    function switchTab(tab) {
+        const care = document.querySelector('.pet-layout'), shop = document.getElementById('petShopContent');
+        const tC = document.getElementById('petTabCare'), tS = document.getElementById('petTabShop');
+        if (tab === 'care') { if (care) care.style.display = ''; if (shop) shop.style.display = 'none'; tC?.classList.add('active'); tS?.classList.remove('active'); }
+        else { if (care) care.style.display = 'none'; if (shop) shop.style.display = ''; tC?.classList.remove('active'); tS?.classList.add('active'); renderShop(); }
+    }
+
+    function scheduleSyncToServer() {
+        if (_syncTimer) clearTimeout(_syncTimer);
+        _syncTimer = setTimeout(async () => { if (!API_URL) return; try { await apiPost({ action: 'savePetData', petState: load() }); } catch { } }, 3000);
+    }
+
+    function loadFromAPI(apiData) {
+        if (!apiData) return;
+        const local = load();
+        if (apiData.spentXP > local.spentXP || (apiData.ownedSkins?.length || 0) > local.ownedSkins.length || (apiData.ownedPets?.length || 0) > local.ownedPets.length) {
+            const m = { ...defaultPet(), ...apiData };
+            m.ownedSkins = [...new Set([...local.ownedSkins, ...(apiData.ownedSkins || ['classic'])])];
+            m.ownedPets = [...new Set([...local.ownedPets, ...(apiData.ownedPets || ['pikachu'])])];
+            m.spentXP = Math.max(local.spentXP, apiData.spentXP || 0);
+            if (local.lastDecay > (m.lastDecay || 0)) { m.happiness = local.happiness; m.fullness = local.fullness; m.energy = local.energy; m.lastDecay = local.lastDecay; }
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(m));
+        }
+    }
+
+    function init() {
+        document.querySelectorAll('.pet-action-btn').forEach(btn => { btn.addEventListener('click', () => { const a = btn.dataset.action; if (a) doAction(a); }); });
+        const renameBtn = document.getElementById('petRenameBtn');
+        if (renameBtn) renameBtn.addEventListener('click', () => { const p = load(), n = prompt('Đặt tên cho thú cưng:', p.name); if (n?.trim()) { p.name = n.trim().substring(0, 20); save(p); render(); } });
+        document.getElementById('petTabCare')?.addEventListener('click', () => switchTab('care'));
+        document.getElementById('petTabShop')?.addEventListener('click', () => switchTab('shop'));
+        document.querySelectorAll('.shop-sub-tab').forEach(btn => { btn.addEventListener('click', () => { document.querySelectorAll('.shop-sub-tab').forEach(b => b.classList.remove('active')); btn.classList.add('active'); currentShopTab = btn.dataset.shopTab; renderShop(); }); });
+        setInterval(() => { const p = document.getElementById('page-pet'); if (p?.classList.contains('active')) render(); }, 30000);
+    }
+
+    function onHabitComplete() {
+        let pet = load(); pet.happiness = clamp(pet.happiness + 5); pet.fullness = clamp(pet.fullness + 3); pet.xp += 10;
+        while (pet.xp >= XP_PER_LEVEL) { pet.xp -= XP_PER_LEVEL; pet.level++; }
+        save(pet);
+    }
+
+    return { init, render, onHabitComplete, renderShop, buyItem, equipItem, loadFromAPI, getAvailableXP, updateXPDisplays };
+})();
+
+document.addEventListener('DOMContentLoaded', () => { VirtualPet.init(); });
+
