@@ -54,6 +54,24 @@ async function discoverApiUrl(sheetId) {
     return null;
 }
 
+// ============================================================
+// 📡 REGISTER API URL: Lưu URL vào Settings sheet
+// Khi bạn nhập URL trên 1 thiết bị → tất cả thiết bị khác tự lấy
+// ============================================================
+async function registerApiUrl(url) {
+    if (!url) return;
+    try {
+        await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'registerUrl', url: url })
+        });
+        console.log('📡 Registered API URL to Settings sheet');
+    } catch (err) {
+        console.log('📡 Register URL failed (OK on first deploy):', err.message);
+    }
+}
+
 // State toàn cục
 const state = {
     habits: [],
@@ -320,14 +338,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.history.replaceState({}, document.title, cleanUrl);
     }
 
-    // 🔍 AUTO-DISCOVERY: Nếu chưa có API URL → thử đọc từ Google Sheets
-    if (!API_URL && SHEET_ID) {
-        showLoading(true);
+    // 🔍 AUTO-DISCOVERY: Luôn thử đọc URL mới nhất từ Google Sheets
+    // Nếu tìm thấy URL khác → cập nhật (hỗ trợ deploy lại mà không cần sửa code)
+    if (SHEET_ID) {
+        if (!API_URL) showLoading(true);
         const discovered = await discoverApiUrl(SHEET_ID);
         if (discovered) {
-            API_URL = discovered;
-            localStorage.setItem('habitflow_api_url', discovered);
-            showToast('🔍 Đã tự động tìm thấy API URL!', 'success');
+            if (!API_URL) {
+                // Chưa có URL → dùng URL phát hiện được
+                API_URL = discovered;
+                localStorage.setItem('habitflow_api_url', discovered);
+                showToast('🔍 Đã tự động tìm thấy API URL!', 'success');
+            } else if (discovered !== API_URL) {
+                // URL trên Sheet khác URL hiện tại → cập nhật
+                API_URL = discovered;
+                localStorage.setItem('habitflow_api_url', discovered);
+                console.log('🔄 Auto-updated API URL from Sheet:', discovered);
+            }
         }
         showLoading(false);
     }
@@ -336,6 +363,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!API_URL && DEFAULT_API_URL) {
         localStorage.setItem('habitflow_api_url', DEFAULT_API_URL);
         API_URL = DEFAULT_API_URL;
+    }
+
+    // 📡 Auto-register: Nếu có API URL → đăng ký vào Sheet cho các thiết bị khác
+    if (API_URL && SHEET_ID) {
+        registerApiUrl(API_URL);
     }
 
     initUI();
