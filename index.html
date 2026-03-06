@@ -754,21 +754,25 @@
                                 <button class="pet-action-btn" id="petFeedBtn" data-action="feed">
                                     <span class="pet-action-icon">🍕</span>
                                     <span class="pet-action-name">Cho ăn</span>
+                                    <span class="pet-action-cost" id="petFeedCost">⚡5 XP</span>
                                     <span class="pet-action-cd" id="petFeedCd"></span>
                                 </button>
                                 <button class="pet-action-btn" id="petPlayBtn" data-action="play">
                                     <span class="pet-action-icon">🎾</span>
                                     <span class="pet-action-name">Chơi</span>
+                                    <span class="pet-action-cost" id="petPlayCost">⚡10 XP</span>
                                     <span class="pet-action-cd" id="petPlayCd"></span>
                                 </button>
                                 <button class="pet-action-btn" id="petSleepBtn" data-action="sleep">
                                     <span class="pet-action-icon">💤</span>
                                     <span class="pet-action-name">Ngủ</span>
+                                    <span class="pet-action-cost" id="petSleepCost">⚡3 XP</span>
                                     <span class="pet-action-cd" id="petSleepCd"></span>
                                 </button>
                                 <button class="pet-action-btn" id="petBathBtn" data-action="bath">
                                     <span class="pet-action-icon">🛁</span>
                                     <span class="pet-action-name">Tắm</span>
+                                    <span class="pet-action-cost" id="petBathCost">⚡5 XP</span>
                                     <span class="pet-action-cd" id="petBathCd"></span>
                                 </button>
                             </div>
@@ -1994,6 +1998,16 @@
             </div>
         </div>
     </div>
+
+    <!-- 🐾 FLOATING DESKTOP PET -->
+    <div class="roaming-pet" id="roamingPet" style="display:none;">
+        <div class="roaming-pet-speech" id="roamingPetSpeech"></div>
+        <img class="roaming-pet-img" id="roamingPetImg" src="" alt="Pet" />
+        <div class="roaming-pet-shadow"></div>
+    </div>
+    <button class="roaming-pet-toggle" id="roamingPetToggle" title="Bật/Tắt thú cưng chạy nhảy">
+        <i class="fa-solid fa-paw"></i>
+    </button>
 
     <!-- Toast notification -->
     <div class="toast" id="toast"></div>

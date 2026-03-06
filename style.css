@@ -10296,6 +10296,31 @@ html {
     min-height: 13px;
 }
 
+.pet-action-cost {
+    font-size: 9px;
+    font-weight: 700;
+    color: #a78bfa;
+    background: rgba(167, 139, 250, 0.1);
+    padding: 1px 6px;
+    border-radius: 6px;
+    letter-spacing: 0.3px;
+}
+
+.pet-action-btn.no-xp {
+    opacity: 0.5;
+    pointer-events: none;
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+.pet-action-btn.no-xp .pet-action-cost {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.pet-action-btn.no-xp .pet-action-cd {
+    color: #ef4444;
+}
+
 /* Habit Progress Ring */
 .pet-habit-progress {
     display: flex;
@@ -11304,5 +11329,257 @@ html {
     .panel-card:active {
         transform: scale(0.98);
         transition: transform 0.1s ease;
+    }
+}
+
+/* ============================================================
+   🐾 ROAMING DESKTOP PET v2 - Physics-based
+   ============================================================ */
+.roaming-pet {
+    position: fixed;
+    bottom: 20px;
+    left: 100px;
+    z-index: 9000;
+    cursor: grab;
+    user-select: none;
+    pointer-events: auto;
+}
+
+.roaming-pet:active {
+    cursor: grabbing;
+}
+
+.roaming-pet-img {
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
+    image-rendering: pixelated;
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4));
+    position: relative;
+    z-index: 2;
+    will-change: transform;
+}
+
+/* Walking bounce */
+.roaming-pet.walking .roaming-pet-img {
+    animation: petWalkBounce 0.35s ease-in-out infinite;
+}
+
+@keyframes petWalkBounce {
+
+    0%,
+    100% {
+        margin-top: 0;
+    }
+
+    50% {
+        margin-top: -5px;
+    }
+}
+
+/* Running - faster bounce + tilt */
+.roaming-pet.running .roaming-pet-img {
+    animation: petRunBounce 0.22s ease-in-out infinite;
+}
+
+@keyframes petRunBounce {
+
+    0%,
+    100% {
+        margin-top: 0;
+    }
+
+    50% {
+        margin-top: -8px;
+    }
+}
+
+/* Idle - gentle breathing */
+.roaming-pet.idle .roaming-pet-img {
+    animation: petBreathing 2.5s ease-in-out infinite;
+}
+
+@keyframes petBreathing {
+
+    0%,
+    100% {
+        margin-top: 0;
+    }
+
+    50% {
+        margin-top: -2px;
+    }
+}
+
+/* Sitting - no bounce, lower position */
+.roaming-pet.sitting .roaming-pet-img {
+    animation: none;
+}
+
+/* Looking - subtle head bob */
+.roaming-pet.looking .roaming-pet-img {
+    animation: petLookAround 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes petLookAround {
+    0% {
+        margin-top: 0;
+    }
+
+    100% {
+        margin-top: -3px;
+    }
+}
+
+/* Sleeping - gentle sway */
+.roaming-pet.sleeping .roaming-pet-img {
+    animation: petSleepSway 3s ease-in-out infinite;
+}
+
+.roaming-pet.sleeping::before {
+    content: '💤';
+    position: absolute;
+    top: -16px;
+    right: -8px;
+    font-size: 16px;
+    animation: petZzz 2s ease-in-out infinite;
+    z-index: 5;
+}
+
+@keyframes petSleepSway {
+
+    0%,
+    100% {
+        margin-top: 2px;
+    }
+
+    50% {
+        margin-top: 0;
+    }
+}
+
+@keyframes petZzz {
+    0% {
+        opacity: 0;
+        transform: translateY(0) scale(0.6);
+    }
+
+    50% {
+        opacity: 1;
+        transform: translateY(-12px) scale(1);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateY(-24px) scale(0.8);
+    }
+}
+
+/* Jumping - handled by physics, just disable other animations */
+.roaming-pet.jumping .roaming-pet-img {
+    animation: none;
+}
+
+/* Shadow */
+.roaming-pet-shadow {
+    width: 50px;
+    height: 8px;
+    background: radial-gradient(ellipse, rgba(0, 0, 0, 0.3) 0%, transparent 70%);
+    border-radius: 50%;
+    margin: -2px auto 0;
+    will-change: transform, opacity;
+    transition: transform 0.1s ease, opacity 0.1s ease;
+}
+
+/* Speech Bubble */
+.roaming-pet-speech {
+    position: absolute;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-card, #161b22);
+    border: 1px solid var(--border, #30363d);
+    border-radius: 12px;
+    padding: 6px 12px;
+    font-size: 11px;
+    color: var(--text-primary, #e6edf3);
+    white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    z-index: 3;
+}
+
+.roaming-pet-speech::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 6px solid var(--bg-card, #161b22);
+}
+
+.roaming-pet-speech.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-4px);
+}
+
+/* Toggle Button */
+.roaming-pet-toggle {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    z-index: 9001;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: var(--bg-card, #161b22);
+    border: 1px solid var(--border, #30363d);
+    color: var(--text-muted, #8b949e);
+    font-size: 16px;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.roaming-pet-toggle:hover {
+    color: #f5d03b;
+    border-color: #f5d03b;
+    box-shadow: 0 0 16px rgba(245, 208, 59, 0.2);
+    transform: scale(1.1);
+}
+
+.roaming-pet-toggle.active {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+}
+
+/* Hover sparkle */
+.roaming-pet:hover .roaming-pet-img {
+    filter: drop-shadow(0 2px 8px rgba(245, 208, 59, 0.5));
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .roaming-pet-img {
+        width: 60px;
+        height: 60px;
+    }
+
+    .roaming-pet-toggle {
+        bottom: 12px;
+        right: 12px;
+        width: 36px;
+        height: 36px;
+        font-size: 14px;
     }
 }

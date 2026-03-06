@@ -1698,6 +1698,11 @@ function toggleCompletion(habitId, date) {
     // 4️⃣ Hiện toast tức thì (không chờ API)
     showToast(isNowDone ? '✅ Đã hoàn thành! Đang lưu...' : '↩️ Đã bỏ đánh dấu', 'success');
 
+    // 4.5️⃣ Cập nhật pet khi hoàn thành habit
+    if (isNowDone && typeof VirtualPet !== 'undefined') {
+        try { VirtualPet.onHabitComplete(); } catch (e) { }
+    }
+
     if (!API_URL) {
         // Không có API: vẫn lưu cache, chỉ cảnh báo
         showToast('💾 Lưu offline – kết nối API để đồng bộ lên Sheets', 'error');
@@ -6506,6 +6511,7 @@ const VirtualPet = (() => {
     };
 
     const COOLDOWNS = { feed: 3600000, play: 1800000, sleep: 7200000, bath: 3600000 };
+    const ACTION_COSTS = { feed: 5, play: 10, sleep: 3, bath: 5 };
     let currentShopTab = 'skins';
     let _syncTimer = null;
 
@@ -6569,8 +6575,18 @@ const VirtualPet = (() => {
     function doAction(action) {
         let pet = load(); pet = applyDecay(pet);
         if (!canAction(pet, action)) { setMessage('Chưa đến lúc! Chờ thêm chút nhé~ ⏳'); return; }
+        // Kiểm tra đủ XP để thực hiện hành động
+        const cost = ACTION_COSTS[action] || 0;
+        const avail = getAvailableXP();
+        if (cost > 0 && avail < cost) {
+            setMessage(`Không đủ XP! Cần ${cost} XP, bạn có ${avail} XP 😢`);
+            if (typeof showToast !== 'undefined') showToast(`Không đủ XP! Cần ${cost}, có ${avail} XP.`, 'error');
+            return;
+        }
         const lk = 'last' + action.charAt(0).toUpperCase() + action.slice(1);
         pet[lk] = Date.now();
+        // Trừ XP từ tổng global pool
+        if (cost > 0) pet.spentXP += cost;
         const pikaEl = document.getElementById('pikachu');
         switch (action) {
             case 'feed': pet.fullness = clamp(pet.fullness + 25); pet.happiness = clamp(pet.happiness + 5); pet.xp += 5; setMessage(randomMsg('feed')); if (pikaEl) { pikaEl.classList.add('eating'); setTimeout(() => pikaEl.classList.remove('eating'), 1500); } break;
@@ -6675,7 +6691,22 @@ const VirtualPet = (() => {
         }
         const msgEl = document.getElementById('petMessage');
         if (msgEl && !pikaEl?.classList.contains('eating') && !pikaEl?.classList.contains('playing')) msgEl.textContent = randomMsg(mood);
-        ['feed', 'play', 'sleep', 'bath'].forEach(a => { const cd = document.getElementById(`pet${a.charAt(0).toUpperCase() + a.slice(1)}Cd`), bt = document.getElementById(`pet${a.charAt(0).toUpperCase() + a.slice(1)}Btn`), t = getCooldownText(pet, a); if (cd) cd.textContent = t; if (bt) bt.classList.toggle('disabled', !!t); });
+        const currentAvail = getAvailableXP();
+        ['feed', 'play', 'sleep', 'bath'].forEach(a => {
+            const capA = a.charAt(0).toUpperCase() + a.slice(1);
+            const cd = document.getElementById(`pet${capA}Cd`);
+            const bt = document.getElementById(`pet${capA}Btn`);
+            const costEl = document.getElementById(`pet${capA}Cost`);
+            const t = getCooldownText(pet, a);
+            const cost = ACTION_COSTS[a] || 0;
+            const canAfford = currentAvail >= cost;
+            if (cd) cd.textContent = t || (!canAfford ? 'Thiếu XP' : '');
+            if (costEl) costEl.textContent = `⚡${cost} XP`;
+            if (bt) {
+                bt.classList.toggle('disabled', !!t || !canAfford);
+                bt.classList.toggle('no-xp', !canAfford && !t);
+            }
+        });
         const arc = document.getElementById('petHabitArc'), pct = document.getElementById('petHabitPct'), cnt = document.getElementById('petHabitCount'), mEl = document.getElementById('petHabitMood');
         if (arc) arc.setAttribute('stroke-dasharray', `${hd.pct}, 100`); if (pct) pct.textContent = hd.pct + '%'; if (cnt) cnt.textContent = `${hd.done}/${hd.total} hoàn thành`; if (mEl) mEl.textContent = getMoodLabel(mood);
         updateXPDisplays();
@@ -6727,3 +6758,427 @@ const VirtualPet = (() => {
 
 document.addEventListener('DOMContentLoaded', () => { VirtualPet.init(); });
 
+// ============================================================
+// 🐾 ROAMING DESKTOP PET v2 - Physics-based realistic movement
+// ============================================================
+const RoamingPet = (() => {
+    const STORAGE_KEY = 'habitflow_roaming_pet';
+    const PET_CATALOG = [
+        { id: 'pikachu', gifId: '25' }, { id: 'eevee', gifId: '133' },
+        { id: 'jigglypuff', gifId: '39' }, { id: 'meowth', gifId: '52' },
+        { id: 'charmander', gifId: '4' }, { id: 'bulbasaur', gifId: '1' },
+        { id: 'squirtle', gifId: '7' }, { id: 'togepi', gifId: '175' },
+        { id: 'snorlax', gifId: '143' }, { id: 'gengar', gifId: '94' },
+        { id: 'mew', gifId: '151' },
+    ];
+
+    const SPEECH = {
+        idle: ['🎵 La la la~', '😊 Hehe~', '⭐ Yay!', '💛 Mình vui!', '✨ (*^▽^*)'],
+        walk: ['🏃 Đi dạo thôi!', '🐾 Chạy chạy~', '🌟 Woo hoo!', '💃 ~(˘▾˘~)'],
+        sit: ['😌 Nghỉ chân tí...', '🍃 Yên bình quá~', '☕ Ngồi xuống thôi~'],
+        look: ['👀 Có gì hay không?', '🤔 Hmm...', '👋 Bạn ơi!', '🔍 Tìm kiếm...'],
+        sleep: ['💤 Zzz...', '😴 Ngáp~', '💤 Ngủ ngon...', '🌙 Good night...'],
+        jump: ['🎉 *Nhảy!*', '⚡ Wheee!', '🌟 Yeee!', '🎊 Boing!'],
+        run: ['🏃‍♂️ Nhanh nào!', '⚡ Catch me!', '💨 Chạy nè!', '🔥 Full speed!'],
+        click: ['😆 Đừng chọc!', '⚡ Pika!!', '🎉 Nhảy cao!', '🌟 Weeee!', '🎾 Chơi nữa!', '⚡⚡⚡ Thunderbolt!'],
+        near: ['👀 Ồ! Chuột!', '😆 Đến gần nè!', '🐾 Bạn đây rồi!', '💛 *vẫy tay*'],
+    };
+
+    // ── PHYSICS STATE ──
+    let enabled = false;
+    let petEl, imgEl, speechEl, toggleBtn;
+    let posX = 200, posY = 0;       // Y = offset from bottom (for jumping)
+    let velX = 0, velY = 0;          // velocity
+    let accX = 0;                    // acceleration
+    let direction = 1;               // 1=right, -1=left
+    let currentState = 'idle';
+    let stateTimer = null;
+    let frameId = null;
+    let lastTime = 0;
+    let mouseX = -1, mouseY = -1;
+    let speechTimer = null;
+
+    // Physics constants
+    const GRAVITY = 2400;            // pixels/s²
+    const WALK_SPEED = 60;           // pixels/s
+    const RUN_SPEED = 160;           // pixels/s
+    const ACCELERATION = 200;        // pixels/s²
+    const FRICTION = 0.92;           // velocity multiplier per frame
+    const JUMP_FORCE = -500;         // pixels/s (upward)
+    const SMALL_JUMP = -300;
+    const GROUND = 0;
+    const PET_SIZE = 80;
+
+    // ── HELPERS ──
+    function getGifUrl(petId) {
+        const entry = PET_CATALOG.find(p => p.id === petId);
+        if (!entry) return '';
+        return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/${entry.gifId}.gif`;
+    }
+
+    function getActivePetId() {
+        try { return JSON.parse(localStorage.getItem('habitflow_pet') || '{}').activePet || 'pikachu'; }
+        catch { return 'pikachu'; }
+    }
+
+    function isEnabled() { return localStorage.getItem(STORAGE_KEY) === 'true'; }
+    function setEnabled(v) { localStorage.setItem(STORAGE_KEY, v ? 'true' : 'false'); enabled = v; }
+
+    function rand(min, max) { return min + Math.random() * (max - min); }
+    function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+    function showSpeech(text) {
+        if (!speechEl) return;
+        if (speechTimer) clearTimeout(speechTimer);
+        speechEl.textContent = text;
+        speechEl.classList.add('show');
+        speechTimer = setTimeout(() => speechEl.classList.remove('show'), 2500);
+    }
+
+    // ── STATE MANAGEMENT ──
+    function setState(s) {
+        if (!petEl) return;
+        petEl.classList.remove('idle', 'walking', 'running', 'jumping', 'sitting', 'looking', 'sleeping');
+        currentState = s;
+        petEl.classList.add(s);
+    }
+
+    function updateVisuals() {
+        if (!petEl) return;
+        // Position
+        petEl.style.left = posX + 'px';
+        petEl.style.bottom = (20 + posY) + 'px';
+
+        // Direction
+        petEl.classList.toggle('facing-left', direction === -1);
+
+        // Squash & stretch based on Y velocity
+        const img = imgEl;
+        if (img && posY > 2) {
+            const stretch = 1 + Math.abs(velY) * 0.0003;
+            const squash = 1 / stretch;
+            img.style.transform = (direction === -1 ? 'scaleX(-1) ' : '') +
+                `scaleX(${squash}) scaleY(${stretch})`;
+        } else if (img && currentState !== 'sitting' && currentState !== 'sleeping') {
+            img.style.transform = direction === -1 ? 'scaleX(-1)' : '';
+        }
+
+        // Shadow scales with height
+        const shadow = petEl.querySelector('.roaming-pet-shadow');
+        if (shadow) {
+            const scale = Math.max(0.3, 1 - posY * 0.005);
+            shadow.style.transform = `scaleX(${scale})`;
+            shadow.style.opacity = scale;
+        }
+    }
+
+    // ── PHYSICS LOOP ──
+    function physicsLoop(timestamp) {
+        if (!enabled) return;
+        const dt = Math.min((timestamp - lastTime) / 1000, 0.05); // cap delta
+        lastTime = timestamp;
+
+        const maxX = window.innerWidth - PET_SIZE - 20;
+        const onGround = posY <= GROUND;
+
+        // Apply gravity
+        if (!onGround) {
+            velY += GRAVITY * dt;
+        }
+
+        // Apply acceleration for walking/running
+        if (currentState === 'walking' || currentState === 'running') {
+            const targetSpeed = currentState === 'running' ? RUN_SPEED : WALK_SPEED;
+            velX += (targetSpeed * direction - velX) * 5 * dt; // smooth approach
+        } else if (onGround && currentState !== 'jumping') {
+            // Friction when idle/sitting/looking
+            velX *= Math.pow(FRICTION, dt * 60);
+            if (Math.abs(velX) < 1) velX = 0;
+        }
+
+        // Update position
+        posX += velX * dt;
+        posY -= velY * dt; // velY positive = falling
+
+        // Ground collision
+        if (posY < GROUND) {
+            posY = GROUND;
+            if (velY > 100) {
+                // Landing squash
+                if (imgEl) {
+                    imgEl.style.transition = 'transform 0.1s ease';
+                    const squash = direction === -1 ? 'scaleX(-1.2) scaleY(0.8)' : 'scaleX(1.2) scaleY(0.8)';
+                    imgEl.style.transform = squash;
+                    setTimeout(() => {
+                        if (imgEl) {
+                            imgEl.style.transition = 'transform 0.2s ease';
+                            imgEl.style.transform = direction === -1 ? 'scaleX(-1)' : '';
+                        }
+                    }, 100);
+                }
+            }
+            velY = 0;
+        }
+
+        // Wall bouncing
+        if (posX >= maxX) {
+            posX = maxX;
+            direction = -1;
+            velX = -Math.abs(velX) * 0.5;
+        } else if (posX <= 10) {
+            posX = 10;
+            direction = 1;
+            velX = Math.abs(velX) * 0.5;
+        }
+
+        updateVisuals();
+        frameId = requestAnimationFrame(physicsLoop);
+    }
+
+    // ── BEHAVIOR AI ──
+    function doJump(force) {
+        if (posY > 2) return; // already in air
+        velY = force || JUMP_FORCE;
+        posY = 1;
+        setState('jumping');
+        if (Math.random() < 0.5) showSpeech(pick(SPEECH.jump));
+    }
+
+    function scheduleNext() {
+        if (stateTimer) clearTimeout(stateTimer);
+        if (!enabled) return;
+
+        // Weight-based random next behavior
+        const onGround = posY <= 2;
+        if (!onGround) {
+            stateTimer = setTimeout(scheduleNext, 200);
+            return;
+        }
+
+        const distToMouse = mouseX >= 0 ? Math.hypot(posX - mouseX, (window.innerHeight - 20) - mouseY) : 9999;
+        const nearMouse = distToMouse < 200;
+
+        // Weighted random behavior
+        const behaviors = [
+            { action: 'walk', weight: 30 },
+            { action: 'idle', weight: 15 },
+            { action: 'run', weight: 10 },
+            { action: 'sit', weight: 12 },
+            { action: 'look', weight: 10 },
+            { action: 'jump', weight: 8 },
+            { action: 'sleep', weight: 5 },
+            { action: 'doubleJump', weight: 3 },
+            { action: 'spin', weight: 4 },
+            { action: 'nearMouse', weight: nearMouse ? 20 : 0 },
+        ];
+
+        const totalWeight = behaviors.reduce((s, b) => s + b.weight, 0);
+        let r = Math.random() * totalWeight;
+        let chosen = 'idle';
+        for (const b of behaviors) {
+            r -= b.weight;
+            if (r <= 0) { chosen = b.action; break; }
+        }
+
+        switch (chosen) {
+            case 'walk': doWalk(); break;
+            case 'run': doRun(); break;
+            case 'idle': doIdle(); break;
+            case 'sit': doSit(); break;
+            case 'look': doLook(); break;
+            case 'jump': doJump(JUMP_FORCE); afterDelay(800, scheduleNext); break;
+            case 'doubleJump': doDoubleJump(); break;
+            case 'spin': doSpin(); break;
+            case 'sleep': doSleep(); break;
+            case 'nearMouse': doApproachMouse(); break;
+        }
+    }
+
+    function afterDelay(ms, fn) {
+        if (stateTimer) clearTimeout(stateTimer);
+        stateTimer = setTimeout(fn, ms);
+    }
+
+    function doWalk() {
+        setState('walking');
+        if (Math.random() < 0.3) { direction *= -1; }
+        if (Math.random() < 0.25) showSpeech(pick(SPEECH.walk));
+        afterDelay(rand(2000, 5000), scheduleNext);
+    }
+
+    function doRun() {
+        setState('running');
+        if (Math.random() < 0.25) { direction *= -1; }
+        if (Math.random() < 0.3) showSpeech(pick(SPEECH.run));
+        afterDelay(rand(1000, 3000), scheduleNext);
+    }
+
+    function doIdle() {
+        setState('idle');
+        if (Math.random() < 0.35) showSpeech(pick(SPEECH.idle));
+        afterDelay(rand(1500, 4000), scheduleNext);
+    }
+
+    function doSit() {
+        setState('sitting');
+        if (imgEl) {
+            imgEl.style.transition = 'transform 0.3s ease';
+            imgEl.style.transform = (direction === -1 ? 'scaleX(-1) ' : '') + 'scaleY(0.85) translateY(6px)';
+        }
+        if (Math.random() < 0.4) showSpeech(pick(SPEECH.sit));
+        afterDelay(rand(3000, 6000), () => {
+            if (imgEl) {
+                imgEl.style.transition = 'transform 0.3s ease';
+                imgEl.style.transform = direction === -1 ? 'scaleX(-1)' : '';
+            }
+            scheduleNext();
+        });
+    }
+
+    function doLook() {
+        setState('looking');
+        // Quick look left-right
+        const origDir = direction;
+        direction = -origDir;
+        updateVisuals();
+        if (Math.random() < 0.4) showSpeech(pick(SPEECH.look));
+        setTimeout(() => {
+            direction = origDir;
+            updateVisuals();
+            setTimeout(() => {
+                if (Math.random() < 0.5) { direction = -origDir; updateVisuals(); }
+            }, 400);
+        }, 600);
+        afterDelay(rand(1500, 3000), scheduleNext);
+    }
+
+    function doDoubleJump() {
+        doJump(JUMP_FORCE);
+        showSpeech('⚡ Double Jump! ⚡');
+        setTimeout(() => {
+            if (posY < 30) doJump(SMALL_JUMP);
+        }, 350);
+        afterDelay(1200, scheduleNext);
+    }
+
+    function doSpin() {
+        setState('idle');
+        showSpeech('🔄 *quay quay*');
+        if (imgEl) {
+            imgEl.style.transition = 'transform 0.5s ease-in-out';
+            imgEl.style.transform = 'rotateY(360deg)';
+            setTimeout(() => {
+                if (imgEl) {
+                    imgEl.style.transition = '';
+                    imgEl.style.transform = direction === -1 ? 'scaleX(-1)' : '';
+                }
+            }, 600);
+        }
+        afterDelay(1000, scheduleNext);
+    }
+
+    function doSleep() {
+        setState('sleeping');
+        if (imgEl) {
+            imgEl.style.transition = 'transform 0.5s ease';
+            imgEl.style.transform = (direction === -1 ? 'scaleX(-1) ' : '') + 'scaleY(0.7) translateY(12px)';
+        }
+        showSpeech(pick(SPEECH.sleep));
+        afterDelay(rand(4000, 8000), () => {
+            showSpeech('😊 *ngáp* Dậy rồi~');
+            if (imgEl) {
+                imgEl.style.transition = 'transform 0.4s ease';
+                imgEl.style.transform = direction === -1 ? 'scaleX(-1)' : '';
+            }
+            setTimeout(scheduleNext, 500);
+        });
+    }
+
+    function doApproachMouse() {
+        if (mouseX < 0) { doWalk(); return; }
+        direction = mouseX > posX ? 1 : -1;
+        setState('walking');
+        showSpeech(pick(SPEECH.near));
+        afterDelay(rand(1500, 3000), scheduleNext);
+    }
+
+    // ── MOUSE TRACKING ──
+    function onMouseMove(e) {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+    }
+
+    // ── PET CLICK ──
+    function onPetClick(e) {
+        e.stopPropagation();
+        if (posY > 5) return;
+        doJump(JUMP_FORCE * 1.2);
+        showSpeech(pick(SPEECH.click));
+        // Small random horizontal boost
+        velX += (Math.random() - 0.5) * 200;
+    }
+
+    // ── IMAGE ──
+    function updatePetImage() {
+        if (!imgEl) return;
+        const url = getGifUrl(getActivePetId());
+        if (url && imgEl.src !== url) imgEl.src = url;
+    }
+
+    // ── SHOW / HIDE ──
+    function show() {
+        if (!petEl || !toggleBtn) return;
+        updatePetImage();
+        posX = rand(100, window.innerWidth - 300);
+        posY = GROUND; velX = 0; velY = 0;
+        petEl.style.display = 'block';
+        toggleBtn.classList.add('active');
+        setState('idle');
+        updateVisuals();
+        lastTime = performance.now();
+        frameId = requestAnimationFrame(physicsLoop);
+        setTimeout(() => {
+            showSpeech('🐾 Xin chào! Mình đi dạo nhé!');
+            setTimeout(scheduleNext, 1000);
+        }, 300);
+    }
+
+    function hide() {
+        if (!petEl || !toggleBtn) return;
+        if (frameId) cancelAnimationFrame(frameId);
+        if (stateTimer) clearTimeout(stateTimer);
+        if (speechTimer) clearTimeout(speechTimer);
+        frameId = null;
+        petEl.style.display = 'none';
+        toggleBtn.classList.remove('active');
+    }
+
+    function toggle() {
+        enabled = !enabled;
+        setEnabled(enabled);
+        enabled ? show() : hide();
+    }
+
+    // ── INIT ──
+    function init() {
+        petEl = document.getElementById('roamingPet');
+        imgEl = document.getElementById('roamingPetImg');
+        speechEl = document.getElementById('roamingPetSpeech');
+        toggleBtn = document.getElementById('roamingPetToggle');
+        if (!petEl || !imgEl || !toggleBtn) return;
+
+        toggleBtn.addEventListener('click', toggle);
+        petEl.addEventListener('click', onPetClick);
+        document.addEventListener('mousemove', onMouseMove);
+        setInterval(updatePetImage, 5000);
+
+        if (isEnabled()) {
+            enabled = true;
+            setTimeout(show, 1000);
+        }
+    }
+
+    return { init, toggle, show, hide, updatePetImage };
+})();
+
+document.addEventListener('DOMContentLoaded', () => { RoamingPet.init(); });
