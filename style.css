@@ -11333,6 +11333,531 @@ html {
 }
 
 /* ============================================================
+   👤 PROFILE PAGE
+   ============================================================ */
+.profile-page {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.profile-stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.profile-stat-card {
+    background: var(--bg-card, #161b22);
+    border: 1px solid var(--border, #30363d);
+    border-radius: 14px;
+    padding: 20px 24px;
+    position: relative;
+    overflow: hidden;
+}
+
+.profile-stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.profile-stat-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    color: var(--text-dim, #8b949e);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.profile-stat-value {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--text-primary, #e6edf3);
+    line-height: 1;
+}
+
+.profile-stat-change {
+    font-size: 11px;
+    color: #10b981;
+    margin-top: 6px;
+    font-weight: 600;
+}
+
+.profile-main-grid {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 20px;
+}
+
+.profile-user-card {
+    text-align: center;
+    padding: 30px 24px !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.profile-avatar-wrap {
+    position: relative;
+    margin-bottom: 16px;
+}
+
+.profile-avatar {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #065f46, #10b981);
+    display: grid;
+    place-items: center;
+    font-size: 42px;
+    border: 3px solid #10b981;
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+}
+
+.profile-level-badge {
+    position: absolute;
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 10px;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.profile-name {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text-primary, #e6edf3);
+    margin: 4px 0 6px;
+}
+
+.profile-bio {
+    font-size: 12px;
+    color: var(--text-dim, #8b949e);
+    line-height: 1.5;
+    max-width: 250px;
+    margin: 0 auto 16px;
+}
+
+.profile-edit-btn {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 24px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 100%;
+}
+
+.profile-edit-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+}
+
+.profile-pet-mini {
+    margin-top: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(16, 185, 129, 0.06);
+    border: 1px solid rgba(16, 185, 129, 0.15);
+    border-radius: 12px;
+    padding: 10px 14px;
+    width: 100%;
+}
+
+.profile-pet-img {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    image-rendering: pixelated;
+}
+
+.profile-pet-info {
+    text-align: left;
+}
+
+.profile-pet-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary, #e6edf3);
+}
+
+.profile-pet-level {
+    font-size: 11px;
+    color: #10b981;
+    font-weight: 600;
+}
+
+.profile-medal-card {
+    padding: 24px !important;
+}
+
+.profile-medals {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.profile-medal {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 16px 8px;
+    border-radius: 12px;
+    border: 1px solid var(--border, #30363d);
+    background: var(--bg-card, #161b22);
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.profile-medal.unlocked {
+    border-color: rgba(16, 185, 129, 0.3);
+    background: rgba(16, 185, 129, 0.05);
+}
+
+.profile-medal-icon {
+    font-size: 32px;
+    filter: grayscale(1) opacity(0.4);
+    transition: all 0.3s ease;
+}
+
+.profile-medal.unlocked .profile-medal-icon {
+    filter: none;
+    transform: scale(1.1);
+}
+
+.profile-medal-name {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-primary, #e6edf3);
+}
+
+.profile-medal-desc {
+    font-size: 9px;
+    color: var(--text-dim, #8b949e);
+    line-height: 1.3;
+}
+
+.profile-medal.unlocked::after {
+    content: '✓';
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    font-size: 10px;
+    color: #10b981;
+    font-weight: 700;
+}
+
+.profile-milestone {
+    margin-top: 24px;
+    background: rgba(16, 185, 129, 0.05);
+    border: 1px solid rgba(16, 185, 129, 0.15);
+    border-radius: 12px;
+    padding: 16px;
+}
+
+.profile-milestone-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.profile-milestone-icon {
+    font-size: 18px;
+}
+
+.profile-milestone-text {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary, #e6edf3);
+}
+
+.profile-milestone-desc {
+    font-size: 12px;
+    color: var(--text-dim, #8b949e);
+    margin-bottom: 10px;
+}
+
+.profile-milestone-bar-wrap {
+    height: 8px;
+    background: rgba(16, 185, 129, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.profile-milestone-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #10b981, #34d399);
+    border-radius: 4px;
+    transition: width 0.6s ease;
+}
+
+.profile-milestone-progress {
+    font-size: 11px;
+    color: #10b981;
+    font-weight: 700;
+    text-align: right;
+    margin-top: 4px;
+}
+
+.profile-activity-card {
+    padding: 24px !important;
+}
+
+.profile-activity-range {
+    font-size: 11px;
+    color: var(--text-dim, #8b949e);
+}
+
+.profile-heatmap {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    grid-template-rows: repeat(7, 1fr);
+    gap: 3px;
+    margin-top: 12px;
+}
+
+.profile-hm-cell {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 2px;
+    background: var(--border, #30363d);
+    min-width: 0;
+}
+
+.profile-hm-cell.l1 {
+    background: #0e4429;
+}
+
+.profile-hm-cell.l2 {
+    background: #006d32;
+}
+
+.profile-hm-cell.l3 {
+    background: #26a641;
+}
+
+.profile-hm-cell.l4 {
+    background: #39d353;
+}
+
+.profile-heatmap-legend {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 8px;
+    font-size: 10px;
+    color: var(--text-dim, #8b949e);
+}
+
+.profile-heatmap-colors {
+    display: flex;
+    gap: 2px;
+}
+
+.profile-heatmap-colors span {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+}
+
+.hm-l0 {
+    background: var(--border, #30363d);
+}
+
+.hm-l1 {
+    background: #0e4429;
+}
+
+.hm-l2 {
+    background: #006d32;
+}
+
+.hm-l3 {
+    background: #26a641;
+}
+
+.hm-l4 {
+    background: #39d353;
+}
+
+.profile-modal-content {
+    max-width: 420px;
+}
+
+.profile-avatar-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.avatar-opt {
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    font-size: 24px;
+    border-radius: 12px;
+    border: 2px solid var(--border, #30363d);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.avatar-opt:hover {
+    border-color: #10b981;
+    transform: scale(1.1);
+}
+
+.avatar-opt.selected {
+    border-color: #10b981;
+    background: rgba(16, 185, 129, 0.1);
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+}
+
+/* Skin badge on pet mini card */
+.profile-pet-skin {
+    font-size: 10px;
+    color: #a78bfa;
+    font-weight: 600;
+    margin-top: 2px;
+}
+
+/* ── Collection Grid ── */
+.profile-collection-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.profile-collection-card {
+    padding: 24px !important;
+}
+
+.profile-coll-count {
+    font-size: 12px;
+    color: #10b981;
+    font-weight: 700;
+}
+
+.profile-coll-items {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.profile-coll-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 12px 6px;
+    border-radius: 12px;
+    border: 1px solid var(--border, #30363d);
+    background: var(--bg-card, #161b22);
+    text-align: center;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.profile-coll-item.owned {
+    border-color: rgba(16, 185, 129, 0.25);
+    background: rgba(16, 185, 129, 0.04);
+}
+
+.profile-coll-item.active {
+    border-color: #10b981;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+}
+
+.profile-coll-item.active::before {
+    content: '✦';
+    position: absolute;
+    top: 3px;
+    right: 5px;
+    font-size: 8px;
+    color: #10b981;
+}
+
+.profile-coll-item.locked {
+    opacity: 0.4;
+    filter: grayscale(0.8);
+}
+
+.profile-coll-icon {
+    font-size: 28px;
+    line-height: 1;
+}
+
+.profile-coll-icon img {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    image-rendering: pixelated;
+}
+
+.profile-coll-name {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-primary, #e6edf3);
+    line-height: 1.2;
+}
+
+.profile-coll-price {
+    font-size: 9px;
+    color: var(--text-dim, #8b949e);
+}
+
+@media (max-width: 768px) {
+    .profile-stats-row {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-main-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-collection-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-stat-value {
+        font-size: 26px;
+    }
+
+    .profile-medals {
+        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    }
+
+    .profile-coll-items {
+        grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+    }
+}
+
+/* ============================================================
    🐾 ROAMING DESKTOP PET v2 - Physics-based
    ============================================================ */
 .roaming-pet {

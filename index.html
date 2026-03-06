@@ -55,6 +55,10 @@
                 <i class="fa-solid fa-crosshairs"></i>
                 <span>Tập trung</span>
             </a>
+            <a href="#" class="nav-item" data-page="profile">
+                <i class="fa-solid fa-user"></i>
+                <span>Cá nhân</span>
+            </a>
             <a href="#" class="nav-item" data-page="settings">
                 <i class="fa-solid fa-gear"></i>
                 <span>Cài đặt</span>
@@ -529,6 +533,164 @@
                 </div>
             </div>
         </section>
+
+        <!-- ====== PAGE: PROFILE ====== -->
+        <section class="page" id="page-profile">
+            <div class="profile-page">
+                <!-- Stats Row -->
+                <div class="profile-stats-row">
+                    <div class="profile-stat-card">
+                        <div class="profile-stat-label">TỔNG HOÀN THÀNH</div>
+                        <div class="profile-stat-value" id="profileTotalDone">0</div>
+                        <div class="profile-stat-change" id="profileDoneChange"></div>
+                    </div>
+                    <div class="profile-stat-card">
+                        <div class="profile-stat-label">TỔNG XP KIẾM ĐƯỢC</div>
+                        <div class="profile-stat-value" id="profileTotalXP">0</div>
+                        <div class="profile-stat-change" id="profileXPChange"></div>
+                    </div>
+                    <div class="profile-stat-card">
+                        <div class="profile-stat-label">ĐIỂM CHUYÊN CẦN</div>
+                        <div class="profile-stat-value" id="profileConsistency">0%</div>
+                        <div class="profile-stat-change" id="profileConsChange"></div>
+                    </div>
+                </div>
+
+                <!-- Main Grid: User Card + Medal Case -->
+                <div class="profile-main-grid">
+                    <!-- Left: User Card -->
+                    <div class="panel-card profile-user-card">
+                        <div class="profile-avatar-wrap">
+                            <div class="profile-avatar" id="profileAvatar">🧑</div>
+                            <div class="profile-level-badge" id="profileLevelBadge">Level 1</div>
+                        </div>
+                        <h2 class="profile-name" id="profileName">Người dùng</h2>
+                        <p class="profile-bio" id="profileBio">Đang trên hành trình xây dựng thói quen tốt hơn mỗi ngày.
+                        </p>
+                        <button class="profile-edit-btn" id="profileEditBtn">
+                            <i class="fa-solid fa-pen"></i> Chỉnh sửa hồ sơ
+                        </button>
+
+                        <!-- Mini Pet Card -->
+                        <div class="profile-pet-mini" id="profilePetMini">
+                            <img class="profile-pet-img" id="profilePetImg" src="" alt="Pet" />
+                            <div class="profile-pet-info">
+                                <div class="profile-pet-name" id="profilePetName">Pika</div>
+                                <div class="profile-pet-level" id="profilePetLevel">Level 1</div>
+                                <div class="profile-pet-skin" id="profilePetSkin">🎨 Classic</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Medal Case -->
+                    <div class="panel-card profile-medal-card">
+                        <div class="panel-header-inline">
+                            <h3>🏅 Medal Case</h3>
+                        </div>
+                        <div class="profile-medals" id="profileMedals">
+                            <!-- Rendered by JS -->
+                        </div>
+
+                        <!-- Milestone Progress -->
+                        <div class="profile-milestone" id="profileMilestone">
+                            <div class="profile-milestone-header">
+                                <span class="profile-milestone-icon">🎯</span>
+                                <span class="profile-milestone-text">Mốc tiếp theo</span>
+                            </div>
+                            <p class="profile-milestone-desc" id="profileMilestoneDesc">Đang tính...</p>
+                            <div class="profile-milestone-bar-wrap">
+                                <div class="profile-milestone-bar" id="profileMilestoneBar" style="width:0%"></div>
+                            </div>
+                            <div class="profile-milestone-progress" id="profileMilestoneProgress">0%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Activity Heatmap -->
+                <div class="panel-card profile-activity-card">
+                    <div class="panel-header-inline">
+                        <h3>📊 Hoạt động gần đây</h3>
+                        <span class="profile-activity-range">12 tuần gần nhất</span>
+                    </div>
+                    <div class="profile-heatmap" id="profileHeatmap">
+                        <!-- Rendered by JS -->
+                    </div>
+                    <div class="profile-heatmap-legend">
+                        <span>Ít hoạt động</span>
+                        <div class="profile-heatmap-colors">
+                            <span class="hm-l0"></span>
+                            <span class="hm-l1"></span>
+                            <span class="hm-l2"></span>
+                            <span class="hm-l3"></span>
+                            <span class="hm-l4"></span>
+                        </div>
+                        <span>Nhiều</span>
+                    </div>
+                </div>
+
+                <!-- Collection: Owned Pets & Skins -->
+                <div class="profile-collection-grid">
+                    <div class="panel-card profile-collection-card">
+                        <div class="panel-header-inline">
+                            <h3>🐾 Bộ sưu tập thú cưng</h3>
+                            <span class="profile-coll-count" id="profilePetCount">0/11</span>
+                        </div>
+                        <div class="profile-coll-items" id="profilePetCollection">
+                            <!-- Rendered by JS -->
+                        </div>
+                    </div>
+                    <div class="panel-card profile-collection-card">
+                        <div class="panel-header-inline">
+                            <h3>🎨 Bộ sưu tập Skin</h3>
+                            <span class="profile-coll-count" id="profileSkinCount">0/6</span>
+                        </div>
+                        <div class="profile-coll-items" id="profileSkinCollection">
+                            <!-- Rendered by JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ====== PROFILE EDIT MODAL ====== -->
+        <div class="modal-overlay" id="profileModal">
+            <div class="modal-content profile-modal-content">
+                <div class="modal-header">
+                    <h3>✏️ Chỉnh sửa hồ sơ</h3>
+                    <button class="modal-close" id="profileModalClose"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Avatar</label>
+                        <div class="profile-avatar-picker" id="profileAvatarPicker">
+                            <span class="avatar-opt" data-avatar="🧑">🧑</span>
+                            <span class="avatar-opt" data-avatar="👩">👩</span>
+                            <span class="avatar-opt" data-avatar="👨">👨</span>
+                            <span class="avatar-opt" data-avatar="🧑‍💻">🧑‍💻</span>
+                            <span class="avatar-opt" data-avatar="🦸">🦸</span>
+                            <span class="avatar-opt" data-avatar="🧙">🧙</span>
+                            <span class="avatar-opt" data-avatar="🐱">🐱</span>
+                            <span class="avatar-opt" data-avatar="🦊">🦊</span>
+                            <span class="avatar-opt" data-avatar="🐻">🐻</span>
+                            <span class="avatar-opt" data-avatar="🐼">🐼</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Tên hiển thị</label>
+                        <input type="text" id="profileNameInput" placeholder="Nhập tên của bạn" maxlength="30" />
+                    </div>
+                    <div class="form-group">
+                        <label>Giới thiệu (Bio)</label>
+                        <textarea id="profileBioInput" rows="3" placeholder="Viết vài dòng về bản thân..."
+                            maxlength="120"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-cancel" id="profileModalCancel">Hủy</button>
+                    <button class="btn-save" id="profileModalSave">💾 Lưu hồ sơ</button>
+                </div>
+            </div>
+        </div>
 
         <!-- ====== PAGE: SETTINGS ====== -->
         <section class="page" id="page-settings">
@@ -1025,10 +1187,13 @@
                     <div class="meditate-info-panel">
                         <!-- Technique Info -->
                         <div class="med-info-card">
-                            <h4><i class="fa-solid fa-circle-info" style="color: var(--accent);"></i> Về kỹ thuật này
+                            <h4><i class="fa-solid fa-circle-info" style="color: var(--accent);"></i> Về kỹ thuật
+                                này
                             </h4>
-                            <p id="medTechDescription">Kỹ thuật thở 4-7-8 được phát triển bởi Dr. Andrew Weil, giúp giảm
-                                stress, cải thiện giấc ngủ và tăng cường sự tập trung. Hít vào 4 giây, giữ hơi 7 giây,
+                            <p id="medTechDescription">Kỹ thuật thở 4-7-8 được phát triển bởi Dr. Andrew Weil, giúp
+                                giảm
+                                stress, cải thiện giấc ngủ và tăng cường sự tập trung. Hít vào 4 giây, giữ hơi 7
+                                giây,
                                 và thở ra chậm trong 8 giây.</p>
                         </div>
 
@@ -1046,7 +1211,8 @@
                         <!-- Pro Tips -->
                         <div class="med-info-card med-tip-card">
                             <div class="med-tip-badge"><i class="fa-solid fa-lightbulb"></i> Mẹo</div>
-                            <p id="medProTip">Thở bằng bụng (hô hấp cơ hoành) để đạt hiệu quả tốt nhất. Đặt một tay lên
+                            <p id="medProTip">Thở bằng bụng (hô hấp cơ hoành) để đạt hiệu quả tốt nhất. Đặt một tay
+                                lên
                                 bụng và cảm nhận bụng phồng lên khi hít vào.</p>
                         </div>
                     </div>
@@ -1191,7 +1357,8 @@
                     <div class="focus-timer-area">
                         <div class="focus-timer-card">
                             <h2 class="focus-session-title" id="focusSessionTitle">Deep Work Session</h2>
-                            <p class="focus-session-subtitle" id="focusSessionSubtitle">Stay focused for 25 minutes</p>
+                            <p class="focus-session-subtitle" id="focusSessionSubtitle">Stay focused for 25 minutes
+                            </p>
 
                             <!-- Circular Timer -->
                             <div class="focus-timer-ring-wrap">
@@ -1253,7 +1420,8 @@
                         <!-- Pro Tip -->
                         <div class="focus-pro-tip">
                             <div class="pro-tip-badge"><i class="fa-solid fa-lightbulb"></i> Pro Tip</div>
-                            <p id="focusProTip">Deep work sessions longer than 45m increase Legendary drop rates by 6%.
+                            <p id="focusProTip">Deep work sessions longer than 45m increase Legendary drop rates by
+                                6%.
                             </p>
                         </div>
                     </div>
@@ -1522,7 +1690,8 @@
                                 <div class="contrib-month-nav">
                                     <button class="daily-nav-btn" id="focusContribPrev"><i
                                             class="fa-solid fa-chevron-left"></i></button>
-                                    <span class="contrib-month-title" id="focusContribMonthLabel">Tháng 3, 2026</span>
+                                    <span class="contrib-month-title" id="focusContribMonthLabel">Tháng 3,
+                                        2026</span>
                                     <button class="daily-nav-btn" id="focusContribNext"><i
                                             class="fa-solid fa-chevron-right"></i></button>
                                 </div>

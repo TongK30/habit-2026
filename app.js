@@ -2417,13 +2417,14 @@ function showPage(name) {
     document.querySelectorAll('.nav-item').forEach(n => {
         n.classList.toggle('active', n.dataset.page === name);
     });
-    const titles = { dashboard: 'Dashboard', habits: 'Thói quen', stats: 'Thống kê', report: 'Báo cáo tuần', meditate: 'Thiền định', pet: 'Thú cưng', focus: 'Thời gian tập trung', settings: 'Cài đặt' };
+    const titles = { dashboard: 'Dashboard', habits: 'Thói quen', stats: 'Thống kê', report: 'Báo cáo tuần', meditate: 'Thiền định', pet: 'Thú cưng', focus: 'Thời gian tập trung', profile: 'Cá nhân', settings: 'Cài đặt' };
     document.querySelector('#pageTitle h1').textContent = titles[name] || name;
     closeSidebar();
     if (name === 'stats') { renderStats(); }
     if (name === 'report') { renderWeeklyReport(); }
     if (name === 'meditate') { MeditationTimer.updateUI(); }
     if (name === 'pet') { VirtualPet.render(); }
+    if (name === 'profile') { ProfileManager.render(); }
 
     // Toggle floating focus menu
     const ffm = document.getElementById('focusFloatMenu');
@@ -6467,6 +6468,323 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ============================================================
+// ============================================================
+// 👤 PROFILE MANAGER
+// ============================================================
+const ProfileManager = (() => {
+    const STORAGE_KEY = 'habitflow_profile';
+    let profileData = { avatar: '🧑', name: 'Người dùng', bio: 'Đang trên hành trình xây dựng thói quen tốt hơn mỗi ngày.' };
+
+    function loadLocal() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+            if (saved) profileData = { ...profileData, ...saved };
+        } catch { }
+    }
+
+    function saveLocal() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(profileData));
+    }
+
+    async function loadFromAPI() {
+        if (!API_URL) return;
+        try {
+            const res = await fetch(API_URL + '?action=getProfile');
+            const data = await res.json();
+            if (data.profile) {
+                profileData = { ...profileData, ...data.profile };
+                saveLocal();
+            }
+        } catch { }
+    }
+
+    async function saveToAPI() {
+        saveLocal();
+        // Also update sidebar user name
+        const nameEl = document.getElementById('userName');
+        if (nameEl) nameEl.textContent = profileData.name;
+        if (!API_URL) return;
+        try {
+            await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'saveProfile', profile: profileData })
+            });
+        } catch { }
+    }
+
+    function getStats() {
+        const totalDone = (state.completions || []).length;
+        const totalXP = typeof getGlobalXP === 'function' ? getGlobalXP() : totalDone * 10;
+        const consistency = state.stats?.consistencyScore || 0;
+        return { totalDone, totalXP, consistency };
+    }
+
+    function getPetInfo() {
+        try {
+            const pet = JSON.parse(localStorage.getItem('habitflow_pet') || '{}');
+            const PET_CATS = [
+                { id: 'pikachu', gifId: '25', name: 'Pikachu' }, { id: 'eevee', gifId: '133', name: 'Eevee' },
+                { id: 'jigglypuff', gifId: '39', name: 'Jigglypuff' }, { id: 'meowth', gifId: '52', name: 'Meowth' },
+                { id: 'charmander', gifId: '4', name: 'Charmander' }, { id: 'bulbasaur', gifId: '1', name: 'Bulbasaur' },
+                { id: 'squirtle', gifId: '7', name: 'Squirtle' }, { id: 'togepi', gifId: '175', name: 'Togepi' },
+                { id: 'snorlax', gifId: '143', name: 'Snorlax' }, { id: 'gengar', gifId: '94', name: 'Gengar' },
+                { id: 'mew', gifId: '151', name: 'Mew' },
+            ];
+            const SKIN_CATS = [
+                { id: 'classic', name: 'Classic', emoji: '💛' }, { id: 'shiny', name: 'Shiny', emoji: '🧡' },
+                { id: 'night', name: 'Night', emoji: '💜' }, { id: 'fire', name: 'Fire', emoji: '❤️' },
+                { id: 'ice', name: 'Ice', emoji: '💙' }, { id: 'galaxy', name: 'Galaxy', emoji: '🌌' },
+            ];
+            const active = PET_CATS.find(p => p.id === (pet.activePet || 'pikachu')) || PET_CATS[0];
+            const activeSkinObj = SKIN_CATS.find(s => s.id === (pet.activeSkin || 'classic')) || SKIN_CATS[0];
+            return {
+                name: pet.petName || active.name,
+                level: pet.level || 1,
+                gifUrl: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/${active.gifId}.gif`,
+                activeSkinName: activeSkinObj.name,
+                activeSkinEmoji: activeSkinObj.emoji,
+                ownedPets: pet.ownedPets || ['pikachu'],
+                ownedSkins: pet.ownedSkins || ['classic'],
+                activePet: pet.activePet || 'pikachu',
+                activeSkin: pet.activeSkin || 'classic',
+                PET_CATS, SKIN_CATS
+            };
+        } catch { return { name: 'Pikachu', level: 1, gifUrl: '', activeSkinName: 'Classic', activeSkinEmoji: '💛', ownedPets: ['pikachu'], ownedSkins: ['classic'], activePet: 'pikachu', activeSkin: 'classic', PET_CATS: [], SKIN_CATS: [] }; }
+    }
+
+    function renderHeatmap() {
+        const container = document.getElementById('profileHeatmap');
+        if (!container) return;
+
+        // Build completion count map for last 84 days (12 weeks)
+        const today = new Date();
+        const days = 84;
+        const countMap = {};
+        (state.completions || []).forEach(c => {
+            if (c.date) countMap[c.date] = (countMap[c.date] || 0) + 1;
+        });
+
+        let html = '';
+        for (let i = days - 1; i >= 0; i--) {
+            const d = new Date(today);
+            d.setDate(d.getDate() - i);
+            const key = d.toISOString().split('T')[0];
+            const count = countMap[key] || 0;
+            let level = 'l0';
+            if (count >= 5) level = 'l4';
+            else if (count >= 3) level = 'l3';
+            else if (count >= 2) level = 'l2';
+            else if (count >= 1) level = 'l1';
+            html += `<div class="profile-hm-cell ${level}" title="${key}: ${count} hoàn thành"></div>`;
+        }
+        container.innerHTML = html;
+    }
+
+    function renderMedals() {
+        const container = document.getElementById('profileMedals');
+        if (!container) return;
+
+        container.innerHTML = BADGES.map(b => {
+            const unlocked = (state.unlockedBadges || []).includes(b.id);
+            return `
+                <div class="profile-medal ${unlocked ? 'unlocked' : ''}">
+                    <div class="profile-medal-icon">${unlocked ? b.icon : '🔒'}</div>
+                    <div class="profile-medal-name">${b.name}</div>
+                    <div class="profile-medal-desc">${b.desc}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderMilestone() {
+        const totalDone = (state.completions || []).length;
+        // Find next unachieved badge
+        const milestones = [
+            { badge: 'first_step', current: totalDone, target: 1, desc: 'Hoàn thành thói quen đầu tiên' },
+            { badge: 'streak_7', current: state.stats?.currentStreak || 0, target: 7, desc: 'Đạt chuỗi 7 ngày liên tiếp' },
+            { badge: 'consistency_pro', current: state.stats?.consistencyScore || 0, target: 90, desc: 'Đạt điểm chuyên cần >= 90%' },
+            { badge: 'habit_master', current: totalDone, target: 100, desc: 'Hoàn thành 100 lần' },
+            { badge: 'multi_tasker', current: (state.habits || []).length, target: 5, desc: 'Theo dõi 5+ thói quen' },
+        ];
+
+        const next = milestones.find(m => !(state.unlockedBadges || []).includes(m.badge));
+        const descEl = document.getElementById('profileMilestoneDesc');
+        const barEl = document.getElementById('profileMilestoneBar');
+        const progressEl = document.getElementById('profileMilestoneProgress');
+
+        if (next && descEl && barEl && progressEl) {
+            const pct = Math.min(100, Math.round((next.current / next.target) * 100));
+            descEl.textContent = `${next.desc} (${next.current}/${next.target})`;
+            barEl.style.width = pct + '%';
+            progressEl.textContent = pct + '%';
+        } else if (descEl) {
+            descEl.textContent = '🎉 Đã hoàn thành tất cả mốc!';
+            if (barEl) barEl.style.width = '100%';
+            if (progressEl) progressEl.textContent = '100%';
+        }
+    }
+
+    function renderCollection(petInfo) {
+        // Pets collection
+        const petContainer = document.getElementById('profilePetCollection');
+        const petCountEl = document.getElementById('profilePetCount');
+        if (petContainer && petInfo.PET_CATS.length) {
+            const ownedCount = petInfo.ownedPets.length;
+            if (petCountEl) petCountEl.textContent = `${ownedCount}/${petInfo.PET_CATS.length}`;
+
+            petContainer.innerHTML = petInfo.PET_CATS.map(p => {
+                const owned = petInfo.ownedPets.includes(p.id);
+                const active = petInfo.activePet === p.id;
+                const cls = active ? 'owned active' : owned ? 'owned' : 'locked';
+                const gifUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/${p.gifId}.gif`;
+                return `
+                    <div class="profile-coll-item ${cls}" title="${p.name}${owned ? '' : ' (Chưa mua)'}">
+                        <div class="profile-coll-icon"><img src="${gifUrl}" alt="${p.name}" /></div>
+                        <div class="profile-coll-name">${p.name}</div>
+                        ${!owned ? `<div class="profile-coll-price">🔒 ${p.price || 0} XP</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Skins collection
+        const skinContainer = document.getElementById('profileSkinCollection');
+        const skinCountEl = document.getElementById('profileSkinCount');
+        if (skinContainer && petInfo.SKIN_CATS.length) {
+            const ownedCount = petInfo.ownedSkins.length;
+            if (skinCountEl) skinCountEl.textContent = `${ownedCount}/${petInfo.SKIN_CATS.length}`;
+
+            // Full skin catalog with prices
+            const SKIN_FULL = [
+                { id: 'classic', name: 'Classic', price: 0, emoji: '💛' },
+                { id: 'shiny', name: 'Shiny', price: 200, emoji: '🧡' },
+                { id: 'night', name: 'Night', price: 300, emoji: '💜' },
+                { id: 'fire', name: 'Fire', price: 500, emoji: '❤️' },
+                { id: 'ice', name: 'Ice', price: 500, emoji: '💙' },
+                { id: 'galaxy', name: 'Galaxy', price: 1000, emoji: '🌌' },
+            ];
+
+            skinContainer.innerHTML = SKIN_FULL.map(s => {
+                const owned = petInfo.ownedSkins.includes(s.id);
+                const active = petInfo.activeSkin === s.id;
+                const cls = active ? 'owned active' : owned ? 'owned' : 'locked';
+                return `
+                    <div class="profile-coll-item ${cls}" title="${s.name}${owned ? '' : ' (Chưa mua)'}">
+                        <div class="profile-coll-icon">${s.emoji}</div>
+                        <div class="profile-coll-name">${s.name}</div>
+                        ${!owned ? `<div class="profile-coll-price">🔒 ${s.price} XP</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+
+    function render() {
+        loadLocal();
+
+        // User card
+        const avatarEl = document.getElementById('profileAvatar');
+        const nameEl = document.getElementById('profileName');
+        const bioEl = document.getElementById('profileBio');
+        if (avatarEl) avatarEl.textContent = profileData.avatar;
+        if (nameEl) nameEl.textContent = profileData.name;
+        if (bioEl) bioEl.textContent = profileData.bio;
+
+        // Level badge
+        try {
+            const pet = JSON.parse(localStorage.getItem('habitflow_pet') || '{}');
+            const levelEl = document.getElementById('profileLevelBadge');
+            if (levelEl) levelEl.textContent = `Level ${pet.level || 1}`;
+        } catch { }
+
+        // Stats
+        const stats = getStats();
+        const tdEl = document.getElementById('profileTotalDone');
+        const txEl = document.getElementById('profileTotalXP');
+        const tcEl = document.getElementById('profileConsistency');
+        if (tdEl) tdEl.textContent = stats.totalDone.toLocaleString();
+        if (txEl) txEl.textContent = stats.totalXP.toLocaleString();
+        if (tcEl) tcEl.textContent = stats.consistency + '%';
+
+        // Pet mini card
+        const petInfo = getPetInfo();
+        const petImgEl = document.getElementById('profilePetImg');
+        const petNameEl = document.getElementById('profilePetName');
+        const petLevelEl = document.getElementById('profilePetLevel');
+        const petSkinEl = document.getElementById('profilePetSkin');
+        if (petImgEl) petImgEl.src = petInfo.gifUrl;
+        if (petNameEl) petNameEl.textContent = petInfo.name;
+        if (petLevelEl) petLevelEl.textContent = 'Level ' + petInfo.level;
+        if (petSkinEl) petSkinEl.textContent = `🎨 ${petInfo.activeSkinName}`;
+
+        renderMedals();
+        renderHeatmap();
+        renderMilestone();
+        renderCollection(petInfo);
+    }
+
+    function openModal() {
+        loadLocal();
+        document.getElementById('profileNameInput').value = profileData.name;
+        document.getElementById('profileBioInput').value = profileData.bio;
+
+        // Avatar picker
+        document.querySelectorAll('.avatar-opt').forEach(el => {
+            el.classList.toggle('selected', el.dataset.avatar === profileData.avatar);
+        });
+
+        document.getElementById('profileModal').classList.add('show');
+    }
+
+    function closeModal() {
+        document.getElementById('profileModal').classList.remove('show');
+    }
+
+    function saveProfile() {
+        const selectedAvatar = document.querySelector('.avatar-opt.selected');
+        profileData.avatar = selectedAvatar ? selectedAvatar.dataset.avatar : profileData.avatar;
+        profileData.name = document.getElementById('profileNameInput').value.trim() || 'Người dùng';
+        profileData.bio = document.getElementById('profileBioInput').value.trim() || '';
+
+        saveToAPI();
+        closeModal();
+        render();
+        if (typeof showToast !== 'undefined') showToast('✅ Hồ sơ đã được lưu!', 'success');
+    }
+
+    function init() {
+        loadLocal();
+        // Update sidebar name
+        const nameEl = document.getElementById('userName');
+        if (nameEl && profileData.name) nameEl.textContent = profileData.name;
+
+        // Event listeners
+        document.getElementById('profileEditBtn')?.addEventListener('click', openModal);
+        document.getElementById('profileModalClose')?.addEventListener('click', closeModal);
+        document.getElementById('profileModalCancel')?.addEventListener('click', closeModal);
+        document.getElementById('profileModalSave')?.addEventListener('click', saveProfile);
+
+        // Avatar picker
+        document.querySelectorAll('.avatar-opt').forEach(el => {
+            el.addEventListener('click', () => {
+                document.querySelectorAll('.avatar-opt').forEach(e => e.classList.remove('selected'));
+                el.classList.add('selected');
+            });
+        });
+
+        // Load from API
+        loadFromAPI().then(() => {
+            const nameEl2 = document.getElementById('userName');
+            if (nameEl2 && profileData.name) nameEl2.textContent = profileData.name;
+        });
+    }
+
+    return { init, render, loadFromAPI };
+})();
+
+document.addEventListener('DOMContentLoaded', () => { ProfileManager.init(); });
+
 // 🐾 VIRTUAL PET MODULE (with Shop, Skins, Unified XP)
 // ============================================================
 const VirtualPet = (() => {

@@ -16,6 +16,7 @@ const SHEET_FOCUS_HISTORY = 'FocusHistory';
 const SHEET_FOCUS_XP = 'FocusXP';
 const SHEET_PLAYLIST = 'Playlist';
 const SHEET_PET_DATA = 'PetData';
+const SHEET_PROFILE = 'Profile';
 
 // ============================================================
 // CORS Headers helper
@@ -58,6 +59,9 @@ function doGet(e) {
       
       case 'getPlaylist':
         return responseJSON(getPlaylist());
+      
+      case 'getProfile':
+        return responseJSON(getProfile());
       
       case 'getPetData':
         return responseJSON(getPetData());
@@ -115,6 +119,9 @@ function doPost(e) {
       
       case 'deletePlaylistTrack':
         return responseJSON(deletePlaylistTrack(body.trackId));
+      
+      case 'saveProfile':
+        return responseJSON(saveProfile(body.profile));
       
       case 'savePetData':
         return responseJSON(savePetData(body.petState));
@@ -883,6 +890,55 @@ function savePetData(petState) {
   
   sheet.appendRow(['petState', jsonStr]);
   return { success: true, message: 'Pet data saved' };
+}
+
+// ============================================================
+// PROFILE FUNCTIONS
+// ============================================================
+function getProfile() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(SHEET_PROFILE);
+  if (!sheet) return { success: true, profile: null };
+  
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return { success: true, profile: null };
+  
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === 'profile') {
+      try {
+        return { success: true, profile: JSON.parse(String(data[i][1])) };
+      } catch(e) {
+        return { success: true, profile: null };
+      }
+    }
+  }
+  return { success: true, profile: null };
+}
+
+function saveProfile(profile) {
+  if (!profile) return { success: false, error: 'Profile data is required' };
+  
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(SHEET_PROFILE);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_PROFILE);
+    sheet.getRange(1, 1, 1, 2).setValues([['Key', 'Value']]);
+    sheet.getRange(1, 1, 1, 2).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  
+  var jsonStr = JSON.stringify(profile);
+  var data = sheet.getDataRange().getValues();
+  
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === 'profile') {
+      sheet.getRange(i + 1, 2).setValue(jsonStr);
+      return { success: true, message: 'Profile updated' };
+    }
+  }
+  
+  sheet.appendRow(['profile', jsonStr]);
+  return { success: true, message: 'Profile saved' };
 }
 
 // ============================================================
